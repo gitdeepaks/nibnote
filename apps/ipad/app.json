@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Nibnote",
+    "slug": "nibnote",
+    "version": "0.0.1",
+    "orientation": "default",
+    "icon": "./assets/images/icon.png",
+    "scheme": "nibnote",
+    "userInterfaceStyle": "automatic",
+    "platforms": ["ios"],
+    "ios": {
+      "bundleIdentifier": "in.deepak.nibnote",
+      "appleTeamId": "29L7CY6RTQ",
+      "icon": "./assets/expo.icon",
+      "supportsTablet": true,
+      "isTabletOnly": true,
+      "requireFullScreen": false,
+      "deploymentTarget": "26.0"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#208AEF",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
