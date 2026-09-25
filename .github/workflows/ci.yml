@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typescript:
+    name: Typecheck, lint, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run test
+
+  swift:
+    name: SwiftLint + XCTest (native modules)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - name: Detect native modules
+        id: modules
+        run: |
+          if compgen -G "apps/ipad/modules/*/ios/*.swift" > /dev/null; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "No native modules yet (Phase 1 adds pencil-canvas); skipping."
+          fi
+      - name: SwiftLint
+        if: steps.modules.outputs.present == 'true'
+        run: |
+          brew install swiftlint
+          swiftlint lint --strict
+      - uses: oven-sh/setup-bun@v2
+        if: steps.modules.outputs.present == 'true'
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@v5
+        if: steps.modules.outputs.present == 'true'
+        with:
+          node-version-file: .nvmrc
+      - name: XCTest
+        if: steps.modules.outputs.present == 'true'
+        run: |
+          bun install --frozen-lockfile
+          cd apps/ipad
+          bunx expo prebuild --platform ios
+          xcodebuild test \
+            -workspace ios/Nibnote.xcworkspace \
+            -scheme Nibnote \
+            -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)'
