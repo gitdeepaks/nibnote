@@ -1,0 +1,27 @@
+{
+  "name": "nibnote",
+  "private": true,
+  "workspaces": {
+    "packages": ["apps/*", "packages/*"],
+    "catalog": {
+      "react": "19.3.0",
+      "zod": "4.6.5",
+      "typescript": "6.0.3",
+      "eslint": "10.11.0",
+      "typescript-eslint": "8.70.1",
+      "jiti": "2.7.0",
+      "hono": "4.13.9",
+      "@types/bun": "1.4.2"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun run --filter '*' typecheck",
+    "lint": "bun run --filter '*' lint",
+    "test": "bun run --filter '*' test",
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "lefthook": "2.1.14"
+  },
+  "packageManager": "bun@1.4.0"
+}
