@@ -1,0 +1,2 @@
+[install]
+linker = "isolated"  # switch to "hoisted" only if a React Native library fails to resolve
