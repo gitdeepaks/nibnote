@@ -396,7 +396,7 @@ Goal: a strict, lint-clean monorepo that builds a dev client to your iPad, plus 
 - [ ] Check the app name is free in App Store Connect and reserve it now; rename if taken
 - [x] Set the iOS deployment target to 26.0 in app config
 - [x] macOS CI job: SwiftLint and XCTest for the native module on every PR
-- [ ] Install the "All" skills from the Agent skills section and add the skills block to `CLAUDE.md`
+- [x] Install the "All" skills from the Agent skills section and add the skills block to `CLAUDE.md` (all six Phase 0 + Phase 1 skills installed Sep 25, 2026; every one passed the skills.sh audits and a manual read of its scripts)
 
 **Phase 0 decisions (Sep 25, 2026)**
 
