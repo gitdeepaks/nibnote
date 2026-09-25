@@ -1,0 +1,23 @@
+# Pre-commit: typecheck + lint only the workspace packages that have staged files.
+pre-commit:
+  parallel: true
+  jobs:
+    - name: ipad
+      root: apps/ipad/
+      glob: "*.{ts,tsx,json}"
+      run: bun run typecheck && bun run lint
+    - name: server
+      root: apps/server/
+      glob: "*.{ts,json}"
+      run: bun run typecheck && bun run lint
+    - name: shared
+      root: packages/shared/
+      glob: "*.{ts,json}"
+      run: bun run typecheck && bun run lint
+    - name: config
+      root: packages/config/
+      glob: "*.{ts,json}"
+      run: bun run typecheck && bun run lint
+    - name: swiftlint
+      glob: "*.swift"
+      run: swiftlint lint --strict {staged_files}
