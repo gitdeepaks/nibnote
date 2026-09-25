@@ -1,0 +1,26 @@
+{
+  "name": "@nibnote/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./eslint": "./eslint.ts",
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./tsconfig.bun.json": "./tsconfig.bun.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0 --no-inline-config",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "eslint": "catalog:",
+    "jiti": "catalog:",
+    "typescript-eslint": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}
