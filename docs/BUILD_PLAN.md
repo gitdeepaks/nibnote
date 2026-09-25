@@ -420,7 +420,7 @@ Goal: a strict, lint-clean monorepo that builds a dev client to your iPad, plus 
 
 - [x] Dev build installs and launches on the iPad under iPadOS 27 (iPad Pro 11" 3rd gen, iPadOS 27.0, Personal Team signing; Sep 25, 2026)
 - [x] Drawing with Pencil in the spike feels identical to Apple Notes (confirmed on iPad Pro 11" + Apple Pencil 2; Sep 25, 2026)
-- [ ] CI is green; a cast or `any` in a test branch makes CI red
+- [x] CI is green; a cast or `any` in a test branch makes CI red (green on main; PR #1 with a deliberate `any` + `as` failed at the lint step, run 36161382589; Sep 25, 2026)
 
 **Claude Code prompt**
 
