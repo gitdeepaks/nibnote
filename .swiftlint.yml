@@ -1,0 +1,14 @@
+# Swift rules from the Type-safety contract (docs/BUILD_PLAN.md), all as errors
+included:
+  - apps/ipad/modules
+excluded:
+  - "**/node_modules"
+opt_in_rules:
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+force_cast: error
+force_try: error
+force_unwrapping:
+  severity: error
+implicitly_unwrapped_optional:
+  severity: error
