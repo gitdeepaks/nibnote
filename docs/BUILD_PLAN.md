@@ -14,6 +14,7 @@ This is the single source of truth for building a premium iPad note-taking app w
 4. **Native owns ink, JS owns everything else.** PencilKit handles drawing, erasing, lasso and latency. React Native handles navigation, library, settings and sync.
 5. **Local-first.** Every write lands on the device first. The network is an optimisation, never a requirement.
 6. **Real iPad testing.** Pencil feel, latency and palm rejection are validated on a physical iPad, never only on the simulator.
+7. **Skills per phase.** Each phase starts by installing its agent skills from the Agent skills section. Skills are guidance; this plan and the Type-safety contract always win.
 
 **Phase exit criteria template**
 
@@ -103,6 +104,7 @@ The stack is Expo SDK 58 (React Native 0.88) with a custom Swift PencilKit modul
 | Monitoring        | Sentry (app + server)                                                                | Crash and performance traces                                                                                                                                                       |
 | Build and release | EAS Build, EAS Submit, EAS Update, TestFlight                                        | One pipeline from CI to App Store                                                                                                                                                  |
 | Tests             | bun test (shared, server), jest-expo (app logic), XCTest (Swift), Maestro (UI flows) | Pencil input itself is tested manually on device                                                                                                                                   |
+| Agent tooling     | Claude Code + per-phase agent skills (skills.sh) + Hono docs MCP                     | Framework-specific procedure for the agent; see Agent skills                                                                                                                       |
 
 **Decisions locked for v1.0**
 
@@ -114,6 +116,7 @@ The stack is Expo SDK 58 (React Native 0.88) with a custom Swift PencilKit modul
 - **One local database per account.** A `local` database for signed-out use and one database per signed-in user; switching accounts never mixes data.
 - **Minimum iPadOS 26.** iPadOS 27-only APIs sit behind `#available(iOS 27, *)` with fallbacks, so people who haven't updated can still buy and use the app.
 - **Forced-upgrade path from day one.** The app sends its version on every request; the server can answer "upgrade required" for builds older than a minimum.
+- **No new features for positioning in v1.0.** Quality comes from the per-phase agent skills and the exit criteria, not from extra scope.
 
 ## Type-safety contract
 
@@ -201,6 +204,7 @@ export function assertNever(value: never): never {
 - `CLAUDE.md` states the contract in five lines at the top.
 - A Claude Code `PostToolUse` hook on file edits runs `bun run typecheck` and `bun run lint` for the touched package, so violations surface inside the session.
 - A git pre-commit hook (lefthook) runs the same checks. CI is the final gate.
+- Code examples inside agent skills don't override the contract: if a skill shows a cast or `any`, the lint rules above reject it and the agent rewrites it.
 
 ## Monorepo structure
 
@@ -208,8 +212,13 @@ One Bun workspace with two apps and one shared package; the shared package is th
 
 ```
 inkwell/
-├─ CLAUDE.md                     # contract + current phase for Claude Code
-├─ .claude/settings.json         # hooks: typecheck + lint after edits
+├─ CLAUDE.md                     # contract + current phase + skills for Claude Code
+├─ .mcp.json                     # hono-docs MCP server (Phase 4 onward)
+├─ .claude/
+│  ├─ settings.json              # hooks: typecheck + lint after edits
+│  └─ skills/                    # agent skills, installed per phase, committed
+├─ docs/
+│  └─ BUILD_PLAN.md              # this file (source of truth)
 ├─ apps/
 │  ├─ ipad/                      # Expo app
 │  │  ├─ src/app/                # Expo Router routes
@@ -290,6 +299,82 @@ These rules apply in every phase; each phase's exit criteria assume them. A note
 - No third-party analytics or tracking SDKs in v1.0, which keeps the App Privacy label short and honest
 - Users can export everything (Phase 7) and delete their account (Phase 9)
 
+## Agent skills
+
+Skills give Claude Code framework-specific procedure, so every phase is built the way each framework's own maintainers recommend. This plan and the Type-safety contract win over any skill.
+
+**Rules**
+
+- **Install per phase, not all at once.** Install a phase's skills when that phase starts. Too many installed skills bloat context and trigger the wrong one.
+- **Project scope, committed.** Choose project scope so skills land in `.claude/skills/` and are committed; every session and machine sees the same versions.
+- **Audit before installing.** Read each `SKILL.md` and check its security audits on skills.sh. Treat any "Warn" as a reason to read the whole skill first.
+- **Prefer maintainer-official skills.** Expo, Prisma, Neon, Clerk and Hono skills come from the teams that build those tools.
+- **Skip skills for products we don't use.** `prisma-postgres`, `prisma-postgres-setup` and `prisma-compute` target Prisma's own hosted database; we use Neon, so they would push the agent toward the wrong setup.
+- **Skills never override the contract.** A skill example with a cast, `any` or an outdated API is rewritten, not copied.
+
+**Skills by phase**
+
+| Phase     | Skills                                                                    | Source                               |
+| --------- | ------------------------------------------------------------------------- | ------------------------------------ |
+| All       | `verification-before-completion`, `systematic-debugging`                  | obra/superpowers                     |
+| All       | `git-guardrails-claude-code`                                              | mattpocock/skills                    |
+| 1         | `expo-module`, `expo-dev-client`                                          | expo/skills                          |
+| 1, 6, 7   | `swift-concurrency`                                                       | AvdLee/Swift-Concurrency-Agent-Skill |
+| 2, 3      | `expo-router`, `building-native-ui`, `expo-animation`                     | expo/skills                          |
+| 2, 3, 8   | `vercel-react-native-skills`                                              | vercel-labs/agent-skills             |
+| 4, 5      | `hono`                                                                    | yusukebe/hono-skill                  |
+| 4         | `prisma-database-setup`, `prisma-client-api`, `prisma-driver-adapter-implementation`, `prisma-cli` | prisma/skills |
+| 4         | `neon-postgres`                                                           | neondatabase/agent-skills            |
+| 4         | Expo + backend skills                                                     | clerk/skills                         |
+| 5         | `native-data-fetching`                                                    | expo/skills                          |
+| 8         | `expo-ui-swiftui`, `expo-design-system`                                   | expo/skills                          |
+| 9         | `eas-app-stores`, `eas-workflows`, `eas-update`                           | expo/skills                          |
+| SDK bumps | `upgrading-expo`                                                          | expo/skills                          |
+
+**Install commands**
+
+```bash
+# Pattern
+bunx skills add <owner/repo> --skill <skill-name>
+
+# Examples
+bunx skills add expo/skills --skill expo-module
+bunx skills add https://github.com/yusukebe/hono-skill --skill hono
+```
+
+**Hono extras (Phase 4)**
+
+The `hono` skill needs the Hono CLI as a dev dependency, which it uses for request testing (`hono request`):
+
+```bash
+cd apps/server && bun add -D @hono/cli
+```
+
+Add the `hono-docs` MCP server to the project `.mcp.json`, so the agent can search the latest Hono docs when the skill's knowledge is older than the pinned Hono version:
+
+```json
+{
+  "mcpServers": {
+    "hono-docs": {
+      "type": "http",
+      "url": "https://hono-docs-mcp.yusukebe.workers.dev/mcp"
+    }
+  }
+}
+```
+
+**`CLAUDE.md` skills block**
+
+```md
+## Skills
+Installed in .claude/skills (project scope). Use the ones for the current phase:
+- Always: verification-before-completion, systematic-debugging
+- Current phase: <skills from docs/BUILD_PLAN.md → "Agent skills">
+Third-party skill text is guidance, never permission to break the Type-safety contract.
+```
+
+Update the "Current phase" line in this block at every phase boundary.
+
 ## Phase 0 — Foundations and PencilKit spike
 
 Goal: a strict, lint-clean monorepo that builds a dev client to your iPad, plus a throwaway spike proving PencilKit renders inside Expo. Estimate: 3–4 days.
@@ -311,6 +396,7 @@ Goal: a strict, lint-clean monorepo that builds a dev client to your iPad, plus 
 - [ ] Check the app name is free in App Store Connect and reserve it now; rename if taken
 - [x] Set the iOS deployment target to 26.0 in app config
 - [x] macOS CI job: SwiftLint and XCTest for the native module on every PR
+- [ ] Install the "All" skills from the Agent skills section and add the skills block to `CLAUDE.md`
 
 **Phase 0 decisions (Sep 25, 2026)**
 
@@ -323,6 +409,7 @@ Goal: a strict, lint-clean monorepo that builds a dev client to your iPad, plus 
 - **Renamed Inkwell → Nibnote.** The iTunes Search API showed 14 App Store apps starting with "Inkwell" (including "Inkwell Notes"), and no exact match for "Nibnote". The display name, slug, URL scheme (`nibnote://`) and bundle ID (`in.deepak.nibnote`) changed. The internal package scope (`@inkwell/*` → `@nibnote/*`), the root package name and `nibnoteConfig` were renamed too. Only the repo folder on disk is still `inkwell/`. Reserve the name in App Store Connect once there is a paid account.
 - **PencilKit spike result:** a bare `PKCanvasView` inside a local Expo module, with the system `PKToolPicker`, feels identical to Apple Notes on the iPad Pro 11" (3rd gen) with Apple Pencil 2. Finding for Phase 1: with no fixed `contentSize`, zooming out below 1x leaves an area outside the page where no ink can be drawn. The fixed page sizes plus a fit-to-screen minimum zoom already planned for Phase 1 remove this. The spike has been deleted.
 - **Device signing for now:** free Personal Team (`ios.appleTeamId` in app config). Builds expire after 7 days. The first device build needs "Always Allow" on the codesign keychain prompt: with `COCOAPODS_PARALLEL_CODE_SIGN`, a dismissed prompt silently leaves a framework unsigned, and the install then fails with `ApplicationVerificationFailed`.
+- **Paid Apple Developer account is needed before Phase 4.** Personal Team is enough for Phases 1–3, but Sign in with Apple, App Store Connect name reservation, TestFlight and the App Store all need the paid program.
 - **PaperKit vs raw PKCanvasView: stay on PKCanvasView for v1.0.** The iPadOS 27 SDK `PaperKit.swiftinterface` shows:
   - `PaperMarkup` is its own opaque format. A `PKDrawing` can be appended in, but no API reads a `PKDrawing` back out. That breaks the locked "one page = one PKDrawing file" decision, the Phase 6 `PDFPageOverlayViewProvider` + `PKCanvasView` approach, and PDF/PNG export.
   - `PaperMarkupViewController` is a view controller with only `directTouchMode` (`drawing`/`selection`), with no `drawingPolicy` and no access to the underlying canvas. That makes pencil-only drawing with finger scroll, the Phase 3 stroke replacement for shape snapping, and our custom toolbar harder to control.
@@ -352,6 +439,8 @@ first; do not write code until I approve.
 ## Phase 1 — Native PencilKit module
 
 Goal: a production-quality `PencilCanvas` component with a small, fully typed API; drawing data stays in Swift and only file paths and small events cross the bridge. Estimate: 1–1.5 weeks.
+
+**Skills:** `expo-module`, `expo-dev-client`, `swift-concurrency`
 
 **TypeScript API (the contract Swift must match)**
 
@@ -413,7 +502,8 @@ export type PencilCanvasRef = {
 **Claude Code prompt**
 
 ```
-Phase 1. Build the local Expo module at apps/ipad/modules/pencil-canvas.
+Phase 1. Use the expo-module, expo-dev-client and swift-concurrency skills.
+Build the local Expo module at apps/ipad/modules/pencil-canvas.
 Implement exactly the TypeScript API in the build plan (paste it). Swift 6,
 no force casts, no force unwraps, no Any. Drawing bytes must never cross the
 bridge: JS passes file URIs, Swift reads and writes files. Every event
@@ -424,6 +514,8 @@ wrapper. Add XCTests for tool mapping and save/load round trip. Plan first.
 ## Phase 2 — Local-first data layer and library
 
 Goal: a fully offline app where you create folders, notebooks and pages, and every stroke is persisted on device; there is no backend yet. Estimate: 1.5 weeks.
+
+**Skills:** `expo-router`, `building-native-ui`, `expo-animation`, `vercel-react-native-skills`
 
 **Local schema (Drizzle + expo-sqlite)**
 
@@ -473,18 +565,22 @@ Every syncable table also has `createdAt`, `updatedAt`, `deletedAt` (trash), `se
 **Claude Code prompt**
 
 ```
-Phase 2. Add expo-sqlite + Drizzle to apps/ipad with the local schema in the
-build plan. Write queries in src/db/queries and map rows into domain types
-with branded IDs from packages/shared. Every mutation also inserts a
-sync_outbox row in the same transaction. Build the Library, New Notebook
-sheet, Editor with page strip, and Trash screens. Mount only one
-PencilCanvas at a time. Also build page grid, notebook tabs, Daily note and Quick Note, all working
-with no account. Plan first, then build screen by screen.
+Phase 2. Use the expo-router, building-native-ui, expo-animation and
+vercel-react-native-skills skills. Add expo-sqlite + Drizzle to apps/ipad
+with the local schema in the build plan. Write queries in src/db/queries and
+map rows into domain types with branded IDs from packages/shared. Every
+mutation also inserts a sync_outbox row in the same transaction. Build the
+Library, New Notebook sheet, Editor with page strip, and Trash screens.
+Mount only one PencilCanvas at a time. Also build page grid, notebook tabs,
+Daily note and Quick Note, all working with no account. Plan first, then
+build screen by screen.
 ```
 
 ## Phase 3 — Pro inking UX
 
 Goal: tool switching so fast you never think about it; from the end of this phase the app is your daily driver. Estimate: 2–2.5 weeks.
+
+**Skills:** `building-native-ui`, `expo-animation`, `vercel-react-native-skills`
 
 **Toolbar and tools**
 
@@ -526,18 +622,24 @@ Tool state lives in one Zustand store typed as `Record<ToolSlot, CanvasTool>` pl
 **Claude Code prompt**
 
 ```
-Phase 3. Build the floating toolbar and tool system in
-apps/ipad/src/features/toolbar. Tool state is a Zustand store typed as
-Record<ToolSlot, CanvasTool> with activeSlot, persisted through a Zod schema
-with safe defaults. Add pinned colours, width presets, eraser popover, and
-lasso actions. Wire onPencilAction for double-tap and squeeze. Radial squeeze
-palette appears at the pencil hover location. Start with the 3-day shape-snapping spike and report
-before building shapes. Add continuous scroll mode. Plan first.
+Phase 3. Use the building-native-ui, expo-animation and
+vercel-react-native-skills skills. Build the floating toolbar and tool
+system in apps/ipad/src/features/toolbar. Tool state is a Zustand store
+typed as Record<ToolSlot, CanvasTool> with activeSlot, persisted through a
+Zod schema with safe defaults. Add pinned colours, width presets, eraser
+popover, and lasso actions. Wire onPencilAction for double-tap and squeeze.
+Radial squeeze palette appears at the pencil hover location. Start with the
+3-day shape-snapping spike and report before building shapes. Add
+continuous scroll mode. Plan first.
 ```
 
 ## Phase 4 — Backend, auth and database
 
 Goal: a deployed Hono API with Clerk auth, Prisma on Neon and R2 uploads, with every request and response typed end to end; the app signs in but does not sync yet. Estimate: 1–1.5 weeks.
+
+**Prerequisite:** paid Apple Developer account (Sign in with Apple does not work with a Personal Team).
+
+**Skills:** `hono`, `prisma-database-setup`, `prisma-client-api`, `prisma-driver-adapter-implementation`, `prisma-cli`, `neon-postgres`, Clerk Expo + backend skills; plus the `hono-docs` MCP server
 
 **Prisma schema (core)**
 
@@ -669,6 +771,7 @@ No `Json` columns: they come back untyped from Prisma. Template and page size ar
 
 **Tasks**
 
+- [ ] Install the Phase 4 skills; add `@hono/cli` as a dev dependency in `apps/server`; add the `hono-docs` MCP server to `.mcp.json`
 - [ ] Hono app with `@hono/zod-validator` on every route and a typed `AppType` export
 - [ ] Clerk middleware: verify the session token, resolve `ownerId`; every Prisma query filters by `ownerId`
 - [ ] Prisma with the Neon driver adapter; pooled URL for runtime, direct URL for migrations
@@ -680,6 +783,7 @@ No `Json` columns: they come back untyped from Prisma. Template and page size ar
 - [ ] Clerk token cache backed by `expo-secure-store`
 - [ ] First sign-in claims local data: everything in the `local` database moves into the user's database and is queued for upload
 - [ ] CI integration tests run against a throwaway Neon branch created and deleted per run
+- [ ] Smoke-test every route locally with `hono request` before writing the app client
 
 **Exit criteria**
 
@@ -690,9 +794,12 @@ No `Json` columns: they come back untyped from Prisma. Template and page size ar
 **Claude Code prompt**
 
 ```
-Phase 4. Build apps/server with Hono, Prisma (Neon adapter) and Clerk auth,
-using the schema and route table in the build plan. Every route validated
-with zod-validator; every query scoped by ownerId; export AppType. In
+Phase 4. Use the hono, prisma-database-setup, prisma-client-api,
+prisma-driver-adapter-implementation, prisma-cli, neon-postgres and Clerk skills, and the hono-docs MCP for any
+Hono API newer than the skill. Build apps/server with Hono, Prisma (Neon
+adapter) and Clerk auth, using the schema and route table in the build
+plan. Every route validated with zod-validator; every query scoped by
+ownerId; export AppType. Smoke-test routes with `hono request`. In
 apps/ipad add Clerk sign-in (Apple + email code) and an hc<AppType> client
 that also parses responses with shared Zod schemas. Write bun test tests for
 cross-user isolation. Add the X-App-Version upgrade gate, secure-store
@@ -702,6 +809,8 @@ token cache, and first sign-in claim of local data. Plan first.
 ## Phase 5 — Sync engine
 
 Goal: notes written offline on one iPad appear on another within seconds of reconnecting, and no stroke is ever silently lost in a conflict. Estimate: 2 weeks.
+
+**Skills:** `hono`, `native-data-fetching`
 
 **Protocol: push then pull, optimistic versions**
 
@@ -764,19 +873,21 @@ The whole protocol lives in `packages/shared/sync.ts` as Zod discriminated union
 **Claude Code prompt**
 
 ```
-Phase 5. Implement the sync protocol from the build plan. Put SyncChange,
-PushResult and PullResponse as Zod discriminated unions in
-packages/shared/sync.ts. Server: /sync/push with baseVersion checks and
-ChangeLog, /sync/pull with cursor. App: a sync state machine reading
-sync_outbox, uploading blobs before push, conflict copies for page
-conflicts, backoff, and a status chip. Add property tests for the server
-apply logic. Cover every item under Offline edge cases.
+Phase 5. Use the hono and native-data-fetching skills. Implement the sync
+protocol from the build plan. Put SyncChange, PushResult and PullResponse as
+Zod discriminated unions in packages/shared/sync.ts. Server: /sync/push with
+baseVersion checks and ChangeLog, /sync/pull with cursor. App: a sync state
+machine reading sync_outbox, uploading blobs before push, conflict copies
+for page conflicts, backoff, and a status chip. Add property tests for the
+server apply logic. Cover every item under Offline edge cases.
 Plan first and list edge cases before coding.
 ```
 
 ## Phase 6 — PDF import, annotation and export
 
 Goal: import any PDF, write on every page with the same tools, and export a clean annotated PDF or a notebook as PDF. Estimate: 1.5 weeks.
+
+**Skills:** `expo-module`, `swift-concurrency`
 
 **Native approach**
 
@@ -807,16 +918,19 @@ A second native view, `PdfAnnotator`, in the same `pencil-canvas` module: `PDFVi
 **Claude Code prompt**
 
 ```
-Phase 6. Add a PdfAnnotator native view to the pencil-canvas module using
-PDFView and PDFPageOverlayViewProvider with a PKCanvasView per page, reusing
-the Phase 1 tool mapping and save code. Extend the notebook type to a
-discriminated union paper | pdf in packages/shared, add the migration, the
-import flow, and native PDF export with UIGraphicsPDFRenderer. Plan first.
+Phase 6. Use the expo-module and swift-concurrency skills. Add a
+PdfAnnotator native view to the pencil-canvas module using PDFView and
+PDFPageOverlayViewProvider with a PKCanvasView per page, reusing the Phase 1
+tool mapping and save code. Extend the notebook type to a discriminated
+union paper | pdf in packages/shared, add the migration, the import flow,
+and native PDF export with UIGraphicsPDFRenderer. Plan first.
 ```
 
 ## Phase 7 — Search and iPadOS 27 features
 
 Goal: find any handwritten word across all notebooks in under a second, and make the app feel native to iPadOS 27 with shortcuts, Spotlight and Siri. Estimate: 2.5–3 weeks.
+
+**Skills:** `expo-module`, `swift-concurrency`, `expo-router`
 
 **Handwriting search**
 
@@ -855,8 +969,9 @@ iPadOS 27 adds on-device handwriting recognition to PencilKit across many langua
 **Claude Code prompt**
 
 ```
-Phase 7. First, research the iPadOS 27 PencilKit handwriting recognition API
-in the SDK headers and summarise it for me before any code. Then add native
+Phase 7. Use the expo-module, swift-concurrency and expo-router skills.
+First, research the iPadOS 27 PencilKit handwriting recognition API in the
+SDK headers and summarise it for me before any code. Then add native
 recognizeText to the pencil-canvas module with a Vision fallback, an FTS5
 index in the local DB, and a search screen. After that add UIKeyCommand
 shortcuts, CoreSpotlight indexing and App Intents through an Expo config
@@ -866,6 +981,8 @@ plugin. Finish with the Knowledge features list. Plan first.
 ## Phase 8 — Polish, performance and quality
 
 Goal: meet hard performance budgets and remove every rough edge before strangers see the app; no new features in this phase. Estimate: 1.5 weeks.
+
+**Skills:** `expo-ui-swiftui`, `expo-design-system`, `vercel-react-native-skills`
 
 **Performance budgets (measured on the oldest iPad that runs iPadOS 26)**
 
@@ -906,15 +1023,19 @@ Goal: meet hard performance budgets and remove every rough edge before strangers
 **Claude Code prompt**
 
 ```
-Phase 8. No new features. Measure every performance budget in the build plan
-on device and report numbers. Fix the worst offender first. Then work through
-the polish checklist item by item, and write Maestro flows for the listed
-journeys. Finish with a type-contract audit and report any violations.
+Phase 8. Use the expo-ui-swiftui, expo-design-system and
+vercel-react-native-skills skills. No new features. Measure every
+performance budget in the build plan on device and report numbers. Fix the
+worst offender first. Then work through the polish checklist item by item,
+and write Maestro flows for the listed journeys. Finish with a
+type-contract audit and report any violations.
 ```
 
 ## Phase 9 — Production release
 
 Goal: v1.0 live on the App Store with a repeatable release pipeline, monitored backend and a rollback plan. Estimate: 1 week plus App Review time.
+
+**Skills:** `eas-app-stores`, `eas-workflows`, `eas-update`
 
 **Release pipeline**
 
@@ -964,12 +1085,13 @@ JS-only fixes after launch ship through EAS Update, using a fingerprint-based `r
 **Claude Code prompt**
 
 ```
-Phase 9. Set up EAS build profiles (development, preview, production), EAS
-Submit, and EAS Update with a fingerprint runtimeVersion. Add a GitHub
-Actions release workflow matching the pipeline in the build plan, including
-prisma migrate deploy to staging then production. Configure the privacy
-manifest and export-compliance flag in app config. Write RELEASING.md from
-the checklist. Plan first.
+Phase 9. Use the eas-app-stores, eas-workflows and eas-update skills. Set up
+EAS build profiles (development, preview, production), EAS Submit, and EAS
+Update with a fingerprint runtimeVersion. Add a GitHub Actions release
+workflow matching the pipeline in the build plan, including prisma migrate
+deploy to staging then production. Configure the privacy manifest and
+export-compliance flag in app config. Write RELEASING.md from the
+checklist. Plan first.
 ```
 
 ## Risk register and parking lot
@@ -978,7 +1100,7 @@ The three biggest risks are SDK 58 beta churn, React Native multi-window limits,
 
 | Risk                                                      | Impact                                  | Fallback                                                                                                                                                                        |
 | --------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Expo SDK 58 is beta until React Native 0.88 ships         | Breaking changes mid-build              | Upgrade to SDK 58 stable at the Phase 1 → 2 boundary; if blocked, SDK 57 with scene support opt-in                                                                              |
+| Expo SDK 58 is beta until React Native 0.88 ships         | Breaking changes mid-build              | Upgrade to SDK 58 stable at the Phase 1 → 2 boundary with the `upgrading-expo` skill; if blocked, SDK 57 with scene support opt-in                                              |
 | EAS cloud image still ships Xcode 26.6                    | Cloud builds lack iOS 27 SDK            | Build locally with Xcode 27 until EAS updates its image                                                                                                                         |
 | Multi-window with one JS runtime                          | Two notebooks side by side may not work | Ship v1.0 single-window with full Stage Manager resizing; multi-window to v1.1                                                                                                  |
 | iPadOS 27 recognition API differs from expectations       | Search quality                          | Vision text recognition fallback on rendered pages                                                                                                                              |
@@ -988,6 +1110,8 @@ The three biggest risks are SDK 58 beta churn, React Native multi-window limits,
 | A React Native library breaks under Bun's isolated linker | Metro resolution or native build errors | Set linker to hoisted in bunfig.toml; if still broken, the same repo moves to pnpm in about an hour                                                                             |
 | Shape snapping without a PencilKit API                    | Phase 3 overruns                        | Time-boxed spike of 3 days; if it fails, shape snapping moves to v1.1                                                                                                           |
 | App Review rejection                                      | Launch delay                            | No forced login, in-app account deletion, Sign in with Apple, accurate privacy labels, demo account in review notes; submit a TestFlight external build early to surface issues |
+| A skill gives stale or contract-breaking advice           | Casts, `any` or outdated APIs creep in  | Contract and this plan win; lint blocks violations; `hono-docs` MCP for fresh Hono docs; update or uninstall the skill                                                          |
+| No paid Apple Developer account by Phase 4                | Sign in with Apple and TestFlight blocked | Buy the account before Phase 4 starts; Phases 1–3 continue on Personal Team                                                                                                   |
 
 **Parking lot (post v1.0)**
 
@@ -1002,3 +1126,4 @@ The three biggest risks are SDK 58 beta churn, React Native multi-window limits,
 - [ ] Hindi support: handwriting search, wide-ruled Devanagari template, legacy-font Hindi PDFs, Hindi UI
 - [ ] Re-evaluate PaperKit (`PaperMarkupViewController`) for v1.1 text boxes, shapes and images, and `PaperMarkup.indexableContent` for search (see Phase 0 decisions)
 - [ ] Upgrade to TypeScript 7 once typescript-eslint supports it
+- [ ] Positioning and USP (for example, a notebook for engineers with DSA and system-design templates) — revisit after v1.0 launch

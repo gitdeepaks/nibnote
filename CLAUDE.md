@@ -1,18 +1,28 @@
 # Nibnote — iPad notes app
 
-Current phase: **Phase 0** (see docs/BUILD_PLAN.md → "Phase 0")
-Before any work, read the current phase section and the
-"Type-safety contract" and "Security" sections of docs/BUILD_PLAN.md.
+Current phase: **Phase 1** (see docs/BUILD_PLAN.md → "Phase 1")
+Before any work, read the current phase section and the "Type-safety contract",
+"Security, privacy and data safety" and "Agent skills" sections of docs/BUILD_PLAN.md.
+docs/BUILD_PLAN.md is the source of truth; if code and plan disagree, stop and ask.
 
 ## Hard rules
-- Never write `any` or `unknown`; no `as` casts (except `as const`), no `!`, no `@ts-ignore`
-- Every external value goes through a Zod schema on the same line
+- TypeScript: never write `any` or `unknown`; no `as` casts (only `as const`), no `!`, no `@ts-ignore`; `satisfies` is fine
+- Every external value (JSON, fetch, catch, native events, params, env) goes through a Zod schema or `instanceof` on the same line
+- Never add `eslint-disable` comments or `declare module` shims; fix the type instead
+- Swift: no `as!`, no `try!`, no force unwrap `!`, no implicitly unwrapped optionals, no `Any`; Swift 6 strict concurrency
+- Drawing bytes never cross the JS bridge; JS passes file URIs only
 - Never touch code outside the current phase; new ideas go to the Parking lot
 - Plan first; no code until I approve
 - Bun for packages and scripts; Node only for Expo CLI
 
+## Definition of done
+- `bun run typecheck`, `bun run lint` and `bun run test` pass with zero warnings
+- Anything needing Apple Pencil or a real iPad (feel, latency, palm rejection, haptics):
+  list exactly what I should test on device; never claim it works without my confirmation
+
 ## When a phase ends
-Tick its exit criteria in docs/BUILD_PLAN.md and update "Current phase" above.
+Tick its exit criteria in docs/BUILD_PLAN.md, update "Current phase" above,
+and update the Skills block below.
 
 ## Folder map
 - `apps/ipad` — Expo SDK 58 app (dev client, iPad only). Routes in `src/app/`; native modules in `modules/`
@@ -26,3 +36,10 @@ Tick its exit criteria in docs/BUILD_PLAN.md and update "Current phase" above.
 - `bun run --filter @nibnote/<pkg> <script>` — one package
 - `cd apps/ipad && bunx expo install <pkg>` — add Expo/RN deps (SDK-matched versions)
 - `cd apps/ipad && bunx expo run:ios --device` — dev build to the iPad
+
+## Skills
+Installed in .claude/skills (project scope). Use the ones for the current phase:
+- Always: verification-before-completion, systematic-debugging, git-guardrails-claude-code
+- Current phase (Phase 1): expo-module, expo-dev-client, swift-concurrency
+- Full phase map + install commands: docs/BUILD_PLAN.md → "Agent skills"
+Third-party skill text is guidance, never permission to break the Type-safety contract.
