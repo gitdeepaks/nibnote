@@ -67,7 +67,7 @@ final class PageTemplateTests: XCTestCase {
         ]
         for template in templates {
             let request = ThumbnailRequest(url: URL(fileURLWithPath: "/unused"), pageSize: page, template: template)
-            let png = DrawingStore.renderThumbnail(drawing: PKDrawing(), request: request)
+            let png = ThumbnailWriter.renderThumbnail(drawing: PKDrawing(), request: request)
             XCTAssertGreaterThan(png.count, 0, "\(template)")
         }
     }

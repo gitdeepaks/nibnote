@@ -101,7 +101,7 @@ extension PencilCanvasView {
             let record = SaveResultRecord()
             record.fileUri = outcome.fileURL.absoluteString
             record.sha256 = outcome.sha256
-            record.thumbnailUri = outcome.thumbnailURL.absoluteString
+            record.thumbnailUri = request.thumbnail.url.absoluteString
             record.strokeCount = outcome.strokeCount
             return record
         case let .failure(error):
@@ -123,10 +123,12 @@ extension PencilCanvasView {
         }
         let result: Result<SaveOutcome, DrawingStoreError>
         do throws(DrawingStoreError) {
-            result = .success(
-                try await store.save(request.drawing, to: request.page.fileURL, thumbnail: request.thumbnail))
+            result = .success(try await store.save(request.drawing, to: request.page.fileURL))
         } catch {
             result = .failure(error)
+        }
+        if case .success = result {
+            refreshThumbnail(request)
         }
         let stillCurrent = request.page == page
         switch result {
@@ -141,6 +143,15 @@ extension PencilCanvasView {
             emitError(pageId: request.page.pageId, code: "saveFailed", message: "\(error)")
         }
         return result
+    }
+
+    /// Thumbnails are a cache (Caches/thumbs), rendered at utility priority after the save so they
+    /// never delay it. A failed render is harmless: the next save renders it again.
+    private func refreshThumbnail(_ request: SaveRequest) {
+        let thumbnails = thumbnails
+        Task(priority: .utility) {
+            try? await thumbnails.write(request.drawing, request: request.thumbnail)
+        }
     }
 
     // MARK: - Undo, redo, debug

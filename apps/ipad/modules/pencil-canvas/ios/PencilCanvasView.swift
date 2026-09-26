@@ -26,6 +26,7 @@ final class PencilCanvasView: ExpoView {
 
     let canvasView = PageCanvasView()
     let store = DrawingStore()
+    let thumbnails = ThumbnailWriter()
     private(set) lazy var surface = PageSurface(canvasView: canvasView)
     private(set) lazy var autosave = AutosaveScheduler { [weak self] in
         await self?.saveCurrentPage()

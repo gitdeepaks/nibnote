@@ -25,8 +25,8 @@ struct ThumbnailRequest: Sendable {
 struct SaveOutcome: Sendable {
     let fileURL: URL
     let sha256: String
-    let thumbnailURL: URL
     let strokeCount: Int
+    /// Time to make the drawing durable (serialize, atomic write, hash). Thumbnails are separate.
     let duration: Duration
 }
 
@@ -88,28 +88,17 @@ actor DrawingStore {
         }
     }
 
-    func save(_ drawing: PKDrawing, to url: URL, thumbnail: ThumbnailRequest) throws(DrawingStoreError) -> SaveOutcome {
-        guard
-            SandboxPolicy.contains(url, root: sandboxRoot),
-            SandboxPolicy.contains(thumbnail.url, root: sandboxRoot)
-        else { throw .outsideSandbox }
+    /// Makes the drawing durable. Thumbnails are rendered separately by `ThumbnailWriter`, so the
+    /// write that protects the user's ink is never held up by image rendering.
+    func save(_ drawing: PKDrawing, to url: URL) throws(DrawingStoreError) -> SaveOutcome {
+        guard SandboxPolicy.contains(url, root: sandboxRoot) else { throw .outsideSandbox }
         let clock = ContinuousClock()
         let start = clock.now
         let data = drawing.dataRepresentation()
         try Self.writeAtomically(data, to: url)
-
         let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-        let png = Self.renderThumbnail(drawing: drawing, request: thumbnail)
-        do {
-            try FileManager.default.createDirectory(
-                at: thumbnail.url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try png.write(to: thumbnail.url, options: [.atomic])
-        } catch {
-            throw .writeFailed("thumbnail: \(error.localizedDescription)")
-        }
         return SaveOutcome(
-            fileURL: url, sha256: digest, thumbnailURL: thumbnail.url,
-            strokeCount: drawing.strokes.count, duration: clock.now - start)
+            fileURL: url, sha256: digest, strokeCount: drawing.strokes.count, duration: clock.now - start)
     }
 
     private static func readDrawing(at url: URL) -> Result<PKDrawing, DrawingStoreError> {
@@ -163,6 +152,28 @@ actor DrawingStore {
             }
         } catch {
             throw .writeFailed(error.localizedDescription)
+        }
+    }
+}
+
+/// Renders page thumbnails (a cache under Caches/, safe to regenerate) off the main thread.
+/// A separate actor from `DrawingStore`, so a slow render never delays the next save.
+actor ThumbnailWriter {
+    private let sandboxRoot: URL
+
+    init(sandboxRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)) {
+        self.sandboxRoot = sandboxRoot
+    }
+
+    func write(_ drawing: PKDrawing, request: ThumbnailRequest) throws(DrawingStoreError) {
+        guard SandboxPolicy.contains(request.url, root: sandboxRoot) else { throw .outsideSandbox }
+        let png = Self.renderThumbnail(drawing: drawing, request: request)
+        do {
+            try FileManager.default.createDirectory(
+                at: request.url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try png.write(to: request.url, options: [.atomic])
+        } catch {
+            throw .writeFailed("thumbnail: \(error.localizedDescription)")
         }
     }
 
