@@ -38,28 +38,25 @@ jobs:
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "No native modules yet (Phase 1 adds pencil-canvas); skipping."
+            echo "No native modules; skipping."
           fi
       - name: SwiftLint
         if: steps.modules.outputs.present == 'true'
         run: |
           brew install swiftlint
           swiftlint lint --strict
-      - uses: oven-sh/setup-bun@v2
-        if: steps.modules.outputs.present == 'true'
-        with:
-          bun-version-file: package.json
-      - uses: actions/setup-node@v5
-        if: steps.modules.outputs.present == 'true'
-        with:
-          node-version-file: .nvmrc
-      - name: XCTest
+      # Each module keeps its pure logic in a Core Swift package, so tests run on an iPad
+      # simulator without building the React Native app.
+      - name: XCTest (module Core packages on an iPad simulator)
         if: steps.modules.outputs.present == 'true'
         run: |
-          bun install --frozen-lockfile
-          cd apps/ipad
-          bunx expo prebuild --platform ios
-          xcodebuild test \
-            -workspace ios/Nibnote.xcworkspace \
-            -scheme Nibnote \
-            -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)'
+          set -euo pipefail
+          UDID=$(xcrun simctl list devices available --json \
+            | jq -r '[.devices[][] | select(.name | startswith("iPad"))][0].udid')
+          echo "Simulator: $UDID"
+          for package in apps/ipad/modules/*/ios/Core/Package.swift; do
+            dir=$(dirname "$package")
+            echo "::group::$dir"
+            (cd "$dir" && xcodebuild test -scheme "$(ls Sources)" -destination "id=$UDID")
+            echo "::endgroup::"
+          done
