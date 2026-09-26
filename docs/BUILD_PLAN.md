@@ -482,22 +482,38 @@ export type PencilCanvasRef = {
 
 **Swift implementation tasks**
 
-- [ ] `PencilCanvasView`: hosts `PKCanvasView`, sets `drawingPolicy`, `isOpaque = false`, zoom from fit-to-screen (about 0.5x on Whiteboard) to 4x
-- [ ] Template view inserted behind the drawing inside the canvas scroll view, so lines zoom with ink
-- [ ] Map `CanvasTool` Record to `PKInkingTool`, `PKEraserTool(.vector / .bitmap, width:)`, `PKLassoTool`
-- [ ] Load: read file, `PKDrawing(data:)`, report corrupt files through `onCanvasError`, never crash
-- [ ] Save: debounce 1.5 s after last stroke, atomic write to a temp file then rename, SHA-256 hash, thumbnail via `drawing.image(from:scale:)` off the main thread
-- [ ] Save on `willResignActive` and on unmount, so no stroke is ever lost
-- [ ] Undo/redo through the canvas `undoManager`; emit `canUndo` / `canRedo` in `onDrawingChanged`
-- [ ] `UIPencilInteraction` delegate: double-tap and Pencil Pro squeeze emitted as `onPencilAction`; respect the user's system preferred tap action
-- [ ] SwiftLint clean; XCTest for tool mapping and load/save round trip
+- [x] `PencilCanvasView`: hosts `PKCanvasView`, sets `drawingPolicy`, `isOpaque = false`, zoom from fit-to-screen (about 0.5x on Whiteboard) to 4x
+- [x] Template view inserted behind the drawing inside the canvas scroll view, so lines zoom with ink
+- [x] Map `CanvasTool` Record to `PKInkingTool`, `PKEraserTool(.vector / .bitmap, width:)`, `PKLassoTool` (pixel eraser uses `.fixedWidthBitmap`, see decisions)
+- [x] Load: read file, `PKDrawing(data:)`, report corrupt files through `onCanvasError`, never crash
+- [x] Save: debounce 1.5 s after last stroke, atomic write to a temp file then rename, SHA-256 hash, thumbnail via `drawing.image(from:scale:)` off the main thread
+- [x] Save on `willResignActive` and on unmount, so no stroke is ever lost
+- [x] Undo/redo through the canvas `undoManager`; emit `canUndo` / `canRedo` in `onDrawingChanged`
+- [x] `UIPencilInteraction` delegate: double-tap and Pencil Pro squeeze emitted as `onPencilAction`; respect the user's system preferred tap action (double-tap verified on device; squeeze implemented but untested, as the test iPad uses Apple Pencil 2)
+- [x] SwiftLint clean; XCTest for tool mapping and load/save round trip (33 XCTests in the Core package)
+
+**Phase 1 decisions (Sep 26, 2026)**
+
+- **The module keeps its pure logic in a Core Swift package** (`modules/pencil-canvas/ios/Core`): tool mapping, templates, page geometry, `DrawingStore`, `PageSurface` and autosave. The podspec compiles the same sources into the app. XCTests run with `xcodebuild test -scheme PencilCanvasCore` on an iPad simulator, without building React Native. A pod `test_spec` was rejected: Expo only includes test specs through `use_expo_modules!(includeTests:)` in the Podfile, and prebuild regenerates the Podfile.
+- **The pixel eraser is `PKEraserTool(.fixedWidthBitmap)`**, which respects the chosen width. `.bitmap` varies width with pressure. Its minimum width is about 16 pt.
+- **Thumbnails are not part of the save.** Profiling a 500-stroke save on the simulator: serialize 1–9 ms, atomic write < 1 ms, SHA-256 < 1 ms, thumbnail 56–135 ms (1.5 s on first render; ~1 s on GPU-less CI runners). `DrawingStore.save` now only makes the drawing durable. A separate `ThumbnailWriter` actor renders `Caches/thumbs/<pageId>.png` at utility priority after each save, so a slow render never delays the next save. `SaveResult.thumbnailUri` is that fixed path; the file can appear a moment after `save()` resolves.
+- **Phase 1 closes only when** PR #2 is merged with every CI job green and the device save time is recorded above.
+- **The highlighter is a marker at 35% alpha.** PencilKit has no highlighter ink, and highlight strokes render above earlier ink.
+- **Events cross the bridge as Swift `Record`s**, so there is no `Any` in Swift. JS parses every payload with its Zod schema; a malformed payload is logged and dropped, never crashes.
+- **`save()` uses a Promise on the main queue.** In SDK 58, async view functions that take a UIKit view don't compile under Swift 6 (the view's `AnyArgument` conformance is main-actor), and `requiresMainActor` is only set for SwiftUI views. `undo`, `redo` and `save` run on the main queue with `MainActor.assumeIsolated`.
+- **Recovering from `.bak` restores the primary file immediately**, so a later save can't rotate the corrupt bytes into `.bak`. A page that can't be read at all stays read-only and is never saved over.
+- **Zoom:** the minimum is the whole page (no writable-looking dead area) and the maximum is 4x. Until the user pinches, the page re-fits the width whenever the viewport changes (React Native lays views out at a provisional size first; rotation). A new page size re-fits.
+- **The template is drawn in a `CATiledLayer`** by an immutable `Sendable` drawer, so only visible tiles render and Whiteboard at 4x zoom stays within memory.
+- **The Canvas Lab** (`src/app/dev/canvas-lab.tsx`, dev builds only) is the Phase 1 test bench. It has synthetic 500/2000-stroke fills and a debug PKToolPicker toggle. Remove it when the Phase 2 editor lands.
+- **Known gap:** `.expo/types` (typed routes) is generated locally and gitignored, so CI typechecks `href`s less strictly than local runs.
+- **Open UX question:** in landscape, an A4 portrait page currently fits the width (scroll to read). Fitting the whole page is the alternative; decide during Phase 3 daily use.
 
 **Exit criteria**
 
-- [ ] 500 strokes on one page: no visible latency, save under 150 ms; a Whiteboard page with 2,000 strokes pans and zooms at 120 fps
-- [ ] Kill the app mid-writing, relaunch: nothing lost beyond the last 1.5 s
-- [ ] Palm resting on screen never draws; finger scrolls and pinch-zooms
-- [ ] Stroke eraser and pixel eraser both work; double-tap toggles eraser
+- [ ] 500 strokes on one page: no visible latency, save under 150 ms; a Whiteboard page with 2,000 strokes pans and zooms at 120 fps (latency and Whiteboard confirmed on iPad Pro 11" 3rd gen; the device save time in ms from the Canvas Lab is still needed; XCTest median save of 500 strokes is well under 150 ms on the simulator)
+- [x] Kill the app mid-writing, relaunch: nothing lost beyond the last 1.5 s
+- [x] Palm resting on screen never draws; finger scrolls and pinch-zooms
+- [x] Stroke eraser and pixel eraser both work; double-tap toggles eraser
 
 **Claude Code prompt**
 

@@ -3,8 +3,11 @@ node_modules/
 dist/
 *.tsbuildinfo
 .DS_Store
-ios/
-android/
+# Generated native projects are ignored in apps/ipad/.gitignore (anchored), so
+# native module sources under apps/ipad/modules/*/ios stay tracked.
+# Swift package build output
+.build/
+.swiftpm/
 .env*
 !.env.example
 coverage/
