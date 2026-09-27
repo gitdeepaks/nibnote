@@ -40,6 +40,6 @@ and update the Skills block below.
 ## Skills
 Installed in .claude/skills (project scope). Use the ones for the current phase:
 - Always: verification-before-completion, systematic-debugging, git-guardrails-claude-code
-- Current phase (Phase 2): expo-router, building-native-ui, expo-animation, vercel-react-native-skills (install at Phase 2 start)
+- Current phase (Phase 2): expo-router, expo-native-ui, expo-animation, vercel-react-native-skills
 - Full phase map + install commands: docs/BUILD_PLAN.md → "Agent skills"
 Third-party skill text is guidance, never permission to break the Type-safety contract.
