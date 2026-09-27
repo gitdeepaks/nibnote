@@ -102,4 +102,15 @@ describe("pages", () => {
     unwrap(repo.pages.recordSave(page, hash));
     expect(outbox()).toHaveLength(before);
   });
+
+  test("countsByNotebook counts live pages per notebook in one query", () => {
+    const { repo, notebook, ids } = setup(3);
+    const other = unwrap(repo.notebooks.create(newNotebookInput("Other"))).notebook;
+    const [, second] = ids;
+    if (second === undefined) throw new Error("setup");
+    unwrap(repo.pages.trash(second));
+    const counts = repo.pages.countsByNotebook();
+    expect(counts.get(notebook.id)).toBe(2);
+    expect(counts.get(other.id)).toBe(1);
+  });
 });

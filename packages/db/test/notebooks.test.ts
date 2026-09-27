@@ -65,6 +65,22 @@ describe("notebooks", () => {
     expect(repo.notebooks.list({ kind: "folder", folderId: folder.id }).map((n) => n.id)).toEqual([b.id]);
   });
 
+  test("favouriting syncs but keeps the library order; renaming moves the notebook to the top", () => {
+    const { repo, outbox, advance } = openTestDb();
+    const a = unwrap(repo.notebooks.create(newNotebookInput("A"))).notebook;
+    advance(1000);
+    const b = unwrap(repo.notebooks.create(newNotebookInput("B"))).notebook;
+    advance(1000);
+    const before = outbox().length;
+    const favourite = unwrap(repo.notebooks.update(a.id, { isFavourite: true }));
+    expect(favourite.updatedAt).toBe(a.updatedAt);
+    expect(outbox()).toHaveLength(before + 1);
+    expect(repo.notebooks.list({ kind: "all" }).map((n) => n.id)).toEqual([b.id, a.id]);
+
+    unwrap(repo.notebooks.update(a.id, { title: "A2" }));
+    expect(repo.notebooks.list({ kind: "all" }).map((n) => n.id)).toEqual([a.id, b.id]);
+  });
+
   test("opening a notebook is device-local and doesn't queue a sync change", () => {
     const { repo, outbox } = openTestDb();
     const { notebook } = unwrap(repo.notebooks.create(newNotebookInput()));

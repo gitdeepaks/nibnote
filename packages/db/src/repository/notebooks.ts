@@ -134,13 +134,14 @@ export function createNotebookQueries<R>(db: Db<R>, deps: RepositoryDeps) {
         if (patch.folderId != null && !folderIsLive(tx, patch.folderId)) {
           return err({ code: "notFound", entity: "folder" });
         }
-        const now = deps.now();
+        // Favouriting is a label, not an edit: it syncs but keeps the notebook's place in the library.
+        const edited = patch.title !== undefined || patch.coverColor !== undefined || patch.folderId !== undefined;
         const changes = {
           ...(patch.title === undefined ? {} : { title: normaliseTitle(patch.title, DEFAULT_NOTEBOOK_TITLE) }),
           ...(patch.coverColor === undefined ? {} : { coverColor: patch.coverColor }),
           ...(patch.isFavourite === undefined ? {} : { isFavourite: patch.isFavourite }),
           ...(patch.folderId === undefined ? {} : { folderId: patch.folderId }),
-          updatedAt: now,
+          ...(edited ? { updatedAt: deps.now() } : {}),
           isDirty: true,
         };
         tx.update(notebooks).set(changes).where(eq(notebooks.id, id)).run();
