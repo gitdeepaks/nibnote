@@ -2,7 +2,10 @@
   "name": "nibnote",
   "private": true,
   "workspaces": {
-    "packages": ["apps/*", "packages/*"],
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ],
     "catalog": {
       "react": "19.3.0",
       "zod": "4.6.5",
@@ -11,7 +14,8 @@
       "typescript-eslint": "8.70.1",
       "jiti": "2.7.0",
       "hono": "4.13.9",
-      "@types/bun": "1.4.2"
+      "@types/bun": "1.4.2",
+      "drizzle-orm": "0.45.3"
     }
   },
   "scripts": {
