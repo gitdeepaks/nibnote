@@ -28,6 +28,7 @@ and update the Skills block below.
 - `apps/ipad` — Expo SDK 58 app (dev client, iPad only). Routes in `src/app/`; native modules in `modules/`
 - `apps/server` — Hono API on Bun; exports `AppType` for the Hono RPC client (`import type` only)
 - `packages/shared` — the only home for Zod schemas, branded IDs, `Result`, `assertNever`
+- `packages/db` — local SQLite schema, migrations (`bun run --filter @nibnote/db db:generate`) and all queries; tested on bun:sqlite
 - `packages/config` — tsconfig base, ESLint contract rules, lint-contract test, Claude hook script
 - `.github/workflows/ci.yml` — typecheck, lint, test (Ubuntu) + SwiftLint/XCTest (macOS)
 
