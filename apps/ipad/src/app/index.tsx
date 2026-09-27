@@ -1,5 +1,6 @@
 import { Link } from "expo-router";
 import { StyleSheet, Text, useColorScheme, View } from "react-native";
+import { DatabaseStatus } from "../features/database/DatabaseStatus";
 
 export default function LibraryPlaceholder() {
   const isDark = useColorScheme() === "dark";
@@ -11,8 +12,9 @@ export default function LibraryPlaceholder() {
       <Text
         style={[styles.subtitle, isDark ? styles.darkText : styles.lightText]}
       >
-        Phase 1 dev build
+        Phase 2 dev build
       </Text>
+      {__DEV__ && <DatabaseStatus />}
       {__DEV__ && (
         <Link href="/dev/canvas-lab" style={styles.link}>
           Open Canvas Lab

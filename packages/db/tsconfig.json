@@ -1,0 +1,6 @@
+{
+  "extends": "@nibnote/config/tsconfig.bun.json",
+  "include": [
+    "**/*.ts"
+  ]
+}

@@ -314,22 +314,22 @@ Skills give Claude Code framework-specific procedure, so every phase is built th
 
 **Skills by phase**
 
-| Phase     | Skills                                                                    | Source                               |
-| --------- | ------------------------------------------------------------------------- | ------------------------------------ |
-| All       | `verification-before-completion`, `systematic-debugging`                  | obra/superpowers                     |
-| All       | `git-guardrails-claude-code`                                              | mattpocock/skills                    |
-| 1         | `expo-module`, `expo-dev-client`                                          | expo/skills                          |
-| 1, 6, 7   | `swift-concurrency`                                                       | AvdLee/Swift-Concurrency-Agent-Skill |
-| 2, 3      | `expo-router`, `building-native-ui`, `expo-animation`                     | expo/skills                          |
-| 2, 3, 8   | `vercel-react-native-skills`                                              | vercel-labs/agent-skills             |
-| 4, 5      | `hono`                                                                    | yusukebe/hono-skill                  |
-| 4         | `prisma-database-setup`, `prisma-client-api`, `prisma-driver-adapter-implementation`, `prisma-cli` | prisma/skills |
-| 4         | `neon-postgres`                                                           | neondatabase/agent-skills            |
-| 4         | Expo + backend skills                                                     | clerk/skills                         |
-| 5         | `native-data-fetching`                                                    | expo/skills                          |
-| 8         | `expo-ui-swiftui`, `expo-design-system`                                   | expo/skills                          |
-| 9         | `eas-app-stores`, `eas-workflows`, `eas-update`                           | expo/skills                          |
-| SDK bumps | `upgrading-expo`                                                          | expo/skills                          |
+| Phase     | Skills                                                                                             | Source                               |
+| --------- | -------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| All       | `verification-before-completion`, `systematic-debugging`                                           | obra/superpowers                     |
+| All       | `git-guardrails-claude-code`                                                                       | mattpocock/skills                    |
+| 1         | `expo-module`, `expo-dev-client`                                                                   | expo/skills                          |
+| 1, 6, 7   | `swift-concurrency`                                                                                | AvdLee/Swift-Concurrency-Agent-Skill |
+| 2, 3      | `expo-router`, `expo-native-ui`, `expo-animation`                                              | expo/skills                          |
+| 2, 3, 8   | `vercel-react-native-skills`                                                                       | vercel-labs/agent-skills             |
+| 4, 5      | `hono`                                                                                             | yusukebe/hono-skill                  |
+| 4         | `prisma-database-setup`, `prisma-client-api`, `prisma-driver-adapter-implementation`, `prisma-cli` | prisma/skills                        |
+| 4         | `neon-postgres`                                                                                    | neondatabase/agent-skills            |
+| 4         | Expo + backend skills                                                                              | clerk/skills                         |
+| 5         | `native-data-fetching`                                                                             | expo/skills                          |
+| 8         | `expo-ui-swiftui`, `expo-design-system`                                                            | expo/skills                          |
+| 9         | `eas-app-stores`, `eas-workflows`, `eas-update`                                                    | expo/skills                          |
+| SDK bumps | `upgrading-expo`                                                                                   | expo/skills                          |
 
 **Install commands**
 
@@ -362,6 +362,8 @@ Add the `hono-docs` MCP server to the project `.mcp.json`, so the agent can sear
   }
 }
 ```
+
+Note (Sep 27, 2026): `building-native-ui` in expo/skills was renamed `expo-native-ui` (same description; motion moved to `expo-animation`).
 
 **`CLAUDE.md` skills block**
 
@@ -531,7 +533,7 @@ wrapper. Add XCTests for tool mapping and save/load round trip. Plan first.
 
 Goal: a fully offline app where you create folders, notebooks and pages, and every stroke is persisted on device; there is no backend yet. Estimate: 1.5 weeks.
 
-**Skills:** `expo-router`, `building-native-ui`, `expo-animation`, `vercel-react-native-skills`
+**Skills:** `expo-router`, `expo-native-ui`, `expo-animation`, `vercel-react-native-skills`
 
 **Local schema (Drizzle + expo-sqlite)**
 
@@ -568,9 +570,22 @@ Every syncable table also has `createdAt`, `updatedAt`, `deletedAt` (trash), `se
 
 **Type-safety focus**
 
-- All queries live in `src/db/queries/*`; screens never import Drizzle directly
+- Schema, migrations and queries live in `packages/db` (tested with `bun test` on `bun:sqlite`); `apps/ipad/src/db` only opens expo-sqlite, boots/migrates and provides the repository. Screens never import Drizzle directly
 - Live data through Drizzle `useLiveQuery`; returned rows are mapped once into domain types with branded IDs
 - Drizzle migrations generated by drizzle-kit and bundled; migration failure shows a recovery screen, not a crash
+
+**Phase 2 decisions**
+
+Phase 2 is built in five milestones, each its own PR: M1 data layer, M2 library, new notebook and trash, M3 editor, M4 page grid, tabs, Daily note and Quick Note, M5 exit criteria.
+
+- **M1 (Sep 27, 2026). The data layer is a workspace package, `packages/db`.** The Expo app's tsconfig has no Bun test types, so queries in `apps/ipad` couldn't be tested without a second tsconfig and ESLint setup. Queries are written against a generic synchronous Drizzle database (`BaseSQLiteDatabase<"sync", R>`), so the same code runs on expo-sqlite in the app and on `bun:sqlite` in tests.
+- **Drizzle `0.45.3` stable, not the v1 RC** the Drizzle docs point to. It is pinned in the root catalog so the app and `packages/db` share one copy.
+- **Migrations ship as a typed module.** `drizzle-kit generate` writes plain SQL, and `scripts/bundle-migrations.ts` turns it into `src/migrations.generated.ts` in the `m0000` shape Drizzle's expo migrator expects. This needs no Babel inline-import plugin, no Metro `sql` extension and no untyped `.sql` imports. A test fails if the bundle drifts from `drizzle/`.
+- **Migration safety.** When migrations are pending on an existing database, `VACUUM INTO` writes a consistent copy first (expo-sqlite 58 has no backup API). A failed migration restores the copy and shows the recovery screen. A fresh database that fails is deleted so the next launch starts clean.
+- **Database location.** `Documents/SQLite/local.db` (the signed-out database) in WAL mode, with foreign keys on. The directory is passed explicitly: expo-sqlite's `defaultDatabaseDirectory` is typed `any`.
+- **Portable queries.** Raw `db.get(sql…)` returns different row shapes on different drivers (an array on Bun), so catalog queries use typed table declarations and `count()`.
+- **Phase 8.5 `[P2]` items built in M1:** relative file paths, per-page `widthPt`/`heightPt`, bounded sort keys with rebalancing (tested with 200 reorders), an idempotent 30-day trash purge on launch, a recovery screen on migration failure, and default names for empty titles plus emoji-safe truncation.
+- **Watch item.** The production JS bundle is 3.6 MB (budget < 4 MB, Phase 8). The Canvas Lab goes in M3.
 
 **Exit criteria**
 
@@ -581,7 +596,7 @@ Every syncable table also has `createdAt`, `updatedAt`, `deletedAt` (trash), `se
 **Claude Code prompt**
 
 ```
-Phase 2. Use the expo-router, building-native-ui, expo-animation and
+Phase 2. Use the expo-router, expo-native-ui, expo-animation and
 vercel-react-native-skills skills. Add expo-sqlite + Drizzle to apps/ipad
 with the local schema in the build plan. Write queries in src/db/queries and
 map rows into domain types with branded IDs from packages/shared. Every
@@ -596,7 +611,7 @@ build screen by screen.
 
 Goal: tool switching so fast you never think about it; from the end of this phase the app is your daily driver. Estimate: 2–2.5 weeks.
 
-**Skills:** `building-native-ui`, `expo-animation`, `vercel-react-native-skills`
+**Skills:** `expo-native-ui`, `expo-animation`, `vercel-react-native-skills`
 
 **Toolbar and tools**
 
@@ -638,7 +653,7 @@ Tool state lives in one Zustand store typed as `Record<ToolSlot, CanvasTool>` pl
 **Claude Code prompt**
 
 ```
-Phase 3. Use the building-native-ui, expo-animation and
+Phase 3. Use the expo-native-ui, expo-animation and
 vercel-react-native-skills skills. Build the floating toolbar and tool
 system in apps/ipad/src/features/toolbar. Tool state is a Zustand store
 typed as Record<ToolSlot, CanvasTool> with activeSlot, persisted through a
@@ -1047,6 +1062,236 @@ and write Maestro flows for the listed journeys. Finish with a
 type-contract audit and report any violations.
 ```
 
+
+## Phase 8.5 — Hardening
+
+Goal: close every known gap before release, so Phase 9 is only packaging and submission. No new features; every item here makes existing behaviour correct, safe, compliant or measurable. Estimate: 2 weeks.
+
+**How this phase works**
+
+- Every item carries the phase it came from, like `[P2]`. If an item was already done in its own phase, tick it here and write "done in Phase N" beside it.
+- An item can be waived only with a written reason under "Phase 8.5 decisions". Nothing is silently skipped.
+- Platform and App Store items were verified against Apple and Expo documentation on Sep 26, 2026 (see Sources). Re-check the Sources links before Phase 9, because Apple updates requirements often.
+
+**Skills:** `verification-before-completion`, `systematic-debugging`, `code-review`, `swift-concurrency`, `expo-module`, `hono`, `vercel-react-native-skills`
+
+---
+
+### A. Canvas and ink
+
+- [ ] `[P1]` **Paper appearance.** Canvas and template view use `overrideUserInterfaceStyle = .light` through a `paperAppearance: "light" | "dark"` prop (Zod schema + Swift Record). PencilKit assumes a dark canvas in dark mode and turns black strokes white, so without this the stored colour, the toolbar swatch and the screen disagree.
+- [ ] `[P1]` **Thumbnails under a light trait.** Render inside `UITraitCollection(userInterfaceStyle: .light).performAsCurrent`, so a thumbnail made in dark mode never captures adapted colours.
+- [ ] `[P1]` **Dark paper option.** "Dark paper" sets `paperAppearance = "dark"`; PencilKit adapts the ink on screen while stored colours stay unchanged. Exports always render light (see G).
+- [ ] `[P1]` **`.bak` fallback.** A corrupt main drawing loads from `<pageId>.drawing.bak`; if both fail, `onCanvasError` fires and the page opens empty without overwriting either file.
+- [ ] `[P1]` **Finger drawing when there is no Pencil.** Our custom toolbar hides `PKToolPicker`, so `.default` drawing policy would force Pencil-only. Compute the policy ourselves: read `UIPencilInteraction.prefersPencilOnlyDrawing` (the system "Only Draw with Apple Pencil" setting); if it is false, use `.anyInput`; switch to `.pencilOnly` automatically after the first Pencil touch; a toolbar toggle overrides both and persists.
+- [ ] `[P1]` **Pencil Pro features marked honestly.** Squeeze and haptics implemented; record "untested on hardware" until verified on a Pencil Pro device.
+- [ ] `[P1]` **Measured baseline.** Save time (500 strokes), Whiteboard fps (2,000 strokes) and mount/unmount memory recorded under "Phase 1 decisions".
+
+### B. Windows, orientation and launch screen
+
+iPadOS 26 deprecated `UIRequiresFullScreen`; apps must handle every orientation and live resizing, and apps built with the iOS 27 SDK need a launch screen for App Store submission.
+
+- [ ] `[Platform]` All four interface orientations declared for iPad; `UIRequiresFullScreen` absent from `Info.plist` and build settings (check the generated `Info.plist` after `expo prebuild`, not just app config).
+- [ ] `[Platform]` Launch screen present: the built `Info.plist` contains `UILaunchStoryboardName` (Expo's splash storyboard) or `UILaunchScreen`. Missing it fails upload with ITMS-90870.
+- [ ] `[Platform]` A preferred minimum scene width set with `UISceneSizeRestrictions` (native, through our module or a config plugin), so the editor never gets narrower than its toolbar needs.
+- [ ] `[P2]` Every screen works from the narrowest Split View width to full width, and while the window is being resized live.
+- [ ] `[P2]` Layout keys off the live window width, never "is this an iPad".
+- [ ] `[P1]` Rotation and Stage Manager resize keep the page in place and recompute the fit-to-screen zoom.
+
+### C. Local data and files
+
+- [ ] `[P2]` **Relative paths only.** The app container path can change on update or reinstall, so `drawingPath`, `thumbnailPath` and `pdfPath` are stored relative to Documents/Caches and resolved at runtime.
+- [ ] `[P2]` **Migration for existing absolute paths.** If any build stored absolute paths, a Drizzle migration strips the container prefix; verified on a device that already has notes.
+- [ ] `[P2]` **Per-page size.** `pages.widthPt` and `pages.heightPt` exist (PDF pages differ); paper pages copy the notebook size. Server schema gets the same fields in its next migration.
+- [ ] `[P2]` Install a new build over an old one: every notebook, drawing and thumbnail still opens.
+- [ ] `[P2]` Delete the Caches folder: thumbnails regenerate, nothing else breaks.
+- [ ] `[P2]` Reorder one page 200 times: `sortKey` length stays bounded; keys rebalance when they grow past a limit.
+- [ ] `[P2]` Forced migration failure restores the backup DB and shows the recovery screen.
+- [ ] `[P2]` Trash purge after 30 days runs on launch and is idempotent.
+- [ ] `[P2]` Daily note uses the device's local date and handles timezone changes.
+- [ ] `[P2]` Deep link `nibnote://notebook/<id>` parses params with Zod; an invalid ID shows "Not found".
+- [ ] `[P2]` Titles with emoji, very long titles and empty titles (default name) display and sort correctly.
+
+### D. Inking UX
+
+- [ ] `[P3]` Tool slots, pinned colours, toolbar dock position and the Pencil-only override survive an app restart.
+- [ ] `[P3]` Undo after switching pages never touches the previous page's strokes.
+- [ ] `[P3]` Two-finger tap undo never fires during pinch-zoom or two-finger scroll.
+- [ ] `[P3]` One undo reverts a snapped shape to the original stroke.
+- [ ] `[P3]` Toolbar usable docked left (left-handed use) and at the narrowest window width.
+- [ ] `[P3]` Colour swatches carry a text label for VoiceOver and don't rely on colour alone (Differentiate Without Color).
+
+### E. Backend and auth
+
+- [ ] `[P4]` All routes under `/v1`; the app sends `X-App-Version`; `426 Upgrade Required` below the minimum version.
+- [ ] `[P4]` Every mutating request carries a client-generated `changeId`; the server stores applied IDs and returns the original result for duplicates.
+- [ ] `[P4]` Clerk webhooks are idempotent (the same event can be delivered more than once).
+- [ ] `[P4]` `/health` checks the DB connection; a separate liveness check stays process-only.
+- [ ] `[P4]` Oversized bodies return 413 before route code; per-user rate limits return 429 with `Retry-After`.
+- [ ] `[P4]` Presigned URLs: expired URL rejected; wrong `Content-Length` or `Content-Type` rejected (both signed into the URL).
+- [ ] `[P4]` Neon and R2 regions chosen for your main users; decision recorded.
+- [ ] `[P4]` **Sign in with Apple token revocation.** Apps offering Sign in with Apple must revoke the user's tokens through Apple's REST API when an account is deleted; deactivation isn't enough. Clerk's docs note that deleting a Clerk user does not reset anything on Apple's side, so our server does it:
+  - At sign-in, the app sends Apple's `authorizationCode`; the server exchanges it once at `https://appleid.apple.com/auth/token` and stores the refresh token encrypted, never logged
+  - `DELETE /v1/account` calls `https://appleid.apple.com/auth/revoke` before deleting data; a failed revoke is retried in the background and never blocks deletion
+  - Client secret is a short-lived JWT signed with the Sign in with Apple `.p8` key (needs the paid account)
+- [ ] `[P4]` On launch, the app checks the Apple credential state and signs out locally if the user stopped using Apple ID for Nibnote in Settings.
+- [ ] `[P4]` `DELETE /v1/account` removes Postgres rows, every R2 object under the user prefix, the Clerk user and the Apple token; then the app wipes the user's local database, files, Keychain items and Spotlight entries and returns to first run.
+
+### F. Sync
+
+Add to the Phase 5 rules:
+
+6. **Delete vs edit:** if one device deletes a page or notebook while another edits it, the edit wins and the item is restored with a "Restored after delete" badge.
+7. **No device clocks** for ordering; only server versions and server receive time.
+8. **Sort-key ties** from two devices are broken by ID, so order is identical everywhere.
+9. **Forward compatibility:** the app ignores unknown fields and entity kinds from a newer server.
+
+- [ ] `[P5]` Server applies a change, the response is lost, the client retries: no duplicate row, no skipped version.
+- [ ] `[P5]` Delete on iPad A while editing the same page on iPad B: the edit survives.
+- [ ] `[P5]` First sync of a 1 GB account shows progress and resumes after the app is killed.
+- [ ] `[P5]` "Sync over cellular" setting respected; sync defers in Low Power Mode except when the user taps "Sync now".
+- [ ] `[P5]` Signing out or switching accounts mid-sync aborts cleanly with no cross-account writes.
+
+### G. PDF and export
+
+- [ ] `[P6]` Files imports call `startAccessingSecurityScopedResource()` before copying and stop after.
+- [ ] `[P6]` PDF document types declared in `Info.plist` (config plugin) so "Open in Nibnote" appears in the share sheet.
+- [ ] `[P6]` All PDF and PNG exports render under a light trait collection.
+- [ ] `[P6]` Export filenames sanitised (no slashes, colons or reserved characters).
+- [ ] `[P6]` Password-protected PDF asks for the password or shows a clear error.
+- [ ] `[P6]` Corrupt PDF shows a clear error; nothing half-imported remains.
+- [ ] `[P6]` Mixed page sizes and rotated pages: overlays stay aligned on screen and in export.
+- [ ] `[P6]` A 1,000-page / 500 MB PDF imports without running out of memory.
+
+### H. Search and iPadOS integration
+
+- [ ] `[P7]` `expo-sqlite` keeps `enableFTS: true` (the default, which includes FTS5); never disabled by a plugin override.
+- [ ] `[P7]` Recognition reruns only for pages whose drawing hash changed.
+- [ ] `[P7]` Spotlight entries removed when a notebook is deleted; the whole index cleared on sign-out, account switch and account deletion.
+- [ ] `[P7]` Links to a deleted page show "Page deleted".
+- [ ] `[P7]` Export-everything streams into the zip; memory stays flat for large libraries.
+- [ ] `[P7]` Keyboard shortcuts don't collide with system shortcuts; all are listed in the iPadOS menu bar.
+
+### I. Performance and resilience
+
+- [ ] `[P8]` Every Phase 8 budget met on the oldest supported iPad, numbers recorded.
+- [ ] `[P8]` Low Power Mode and thermal throttling: ink stays smooth at 60 Hz.
+- [ ] `[P8]` Memory warnings drop thumbnail and PDF render caches; the app is never killed while writing.
+- [ ] `[P8]` Background task time respected: saves and uploads finish or checkpoint before suspension.
+- [ ] `[P8]` App download size recorded; budget set for v1.1.
+
+### J. Security and privacy audit
+
+- [ ] Secrets grep over the repo and the built app bundle: only public values present.
+- [ ] Sentry `beforeSend` scrubber unit-tested with a payload containing a title, recognised text and an email.
+- [ ] Every sensitive file written with `completeUntilFirstUserAuthentication` protection; verified on one real file.
+- [ ] Tokens only in Keychain; nothing sensitive in `settings` or logs.
+- [ ] Dependency vulnerability scan in CI; no high or critical advisories at release.
+- [ ] Cross-user isolation tests (Phase 4) still green against the final schema.
+
+### K. Accessibility
+
+Accessibility Nutrition Labels are optional today, and Apple has signalled they will eventually be required. A label may only be claimed if every common task can be completed with that feature alone.
+
+- [ ] VoiceOver: library, notebook creation, page navigation, toolbar, search, settings, sign-in and account deletion all reachable and labelled.
+- [ ] Voice Control: every button has a visible or accessible name.
+- [ ] Larger Text: library, sheets and settings scale with Dynamic Type without clipping.
+- [ ] Dark Interface, Sufficient Contrast, Reduced Motion and Differentiate Without Color checked against Apple's criteria.
+- [ ] Decide which labels to claim; record the decision.
+
+### L. App Store readiness (inputs for Phase 9)
+
+- [ ] **Age rating questionnaire** completed, including the social-media capability question now required for new apps and updates. Nibnote has no social features, so answers reflect that.
+- [ ] **Privacy manifest** reconciled: start from the reasons RN and Expo need (UserDefaults `CA92.1`, FileTimestamp `C617.1`, SystemBootTime `35F9.1`, DiskSpace `E174.1`), merge every `PrivacyInfo.xcprivacy` found under `node_modules`, then compare with Xcode's privacy report. Apple doesn't always parse manifests from static CocoaPods dependencies, so declare them in the app's own manifest.
+- [ ] **App Privacy labels** match reality: email, user ID, user content, crash data; no tracking.
+- [ ] **Reviewer without an Apple Pencil** can draw with a finger; review notes explain Pencil-only mode and how to trigger sync.
+- [ ] **No competitor names** in the app name, subtitle, keywords, screenshots or description (guideline 4.1(c)).
+- [ ] **No placeholders:** no "Coming soon", no dead buttons, no "beta" or "preview" wording in the app or metadata (guideline 2.1).
+- [ ] Privacy policy, terms and support URLs live and complete.
+- [ ] Screenshots show only features in the submitted build.
+- [ ] Demo account ready with a sample notebook, PDF and search results.
+- [ ] External TestFlight review passed before App Store submission.
+
+### M. Documentation
+
+- [ ] `CONTEXT.md` glossary current (page, drawing, blob, outbox, changelog, conflict copy, paper appearance).
+- [ ] "Phase 8.5 decisions" written: waivers with reasons, measured numbers, label choices, region choice.
+- [ ] `RELEASING.md` draft started from section L.
+
+---
+
+**Hardening test matrix (physical iPad)**
+
+| Scenario                        | Light mode | Dark mode | Portrait | Landscape | Narrow window | Offline | Low Power |
+| ------------------------------- | ---------- | --------- | -------- | --------- | ------------- | ------- | --------- |
+| Write, erase, lasso, undo       | [ ]        | [ ]       | [ ]      | [ ]       | [ ]           | [ ]     | [ ]       |
+| Library, create, trash, restore | [ ]        | [ ]       | [ ]      | [ ]       | [ ]           | [ ]     | [ ]       |
+| PDF import, annotate, export    | [ ]        | [ ]       | [ ]      | [ ]       | [ ]           | [ ]     | [ ]       |
+| Search                          | [ ]        | [ ]       | [ ]      | [ ]       | [ ]           | [ ]     | [ ]       |
+| Sign in, sync, sign out         | [ ]        | [ ]       | [ ]      | [ ]       | [ ]           | n/a     | [ ]       |
+| Delete account                  | [ ]        | [ ]       | [ ]      | [ ]       | [ ]           | n/a     | [ ]       |
+
+**Exit criteria**
+
+- [ ] Every item above ticked or waived with a written reason
+- [ ] Hardening test matrix fully run on a physical iPad
+- [ ] `bun run typecheck`, `bun run lint`, `bun run test`, SwiftLint and XCTest green in CI
+- [ ] A build uploaded to App Store Connect with no ITMS warnings (launch screen, privacy manifest, orientations)
+- [ ] External TestFlight build used daily for one week with zero crashes
+
+**Claude Code prompts** (one session per group; plan first each time)
+
+```
+Phase 8.5, session 1 (sections A and B). Use swift-concurrency,
+expo-module, verification-before-completion. Implement paperAppearance,
+light-trait thumbnails, .bak fallback, and the Pencil-only policy from
+UIPencilInteraction.prefersPencilOnlyDrawing with first-Pencil-touch
+switching and a persisted override. Then verify the generated Info.plist
+has all four iPad orientations, no UIRequiresFullScreen, and a launch
+screen key, and add a minimum scene width. Plan first; end with the list
+of things I must test on the iPad.
+```
+
+```
+Phase 8.5, session 2 (sections C and D). Use systematic-debugging and
+verification-before-completion. Convert stored file paths to relative
+paths with a migration for existing absolute paths, add per-page size,
+sortKey rebalancing, and the data and inking checks in the plan. Write
+tests first for the migration and the rebalancing. Plan first.
+```
+
+```
+Phase 8.5, session 3 (sections E and F). Use hono and
+verification-before-completion. Add /v1, changeId idempotency, webhook
+idempotency, body limits, presign constraints, Sign in with Apple token
+exchange and revocation, credential-state check, full account deletion,
+and sync rules 6–9 with their tests. Plan first and list edge cases.
+```
+
+```
+Phase 8.5, session 4 (sections G to M). Use code-review and
+verification-before-completion. Work through PDF, search, performance,
+security, accessibility and App Store readiness items one by one. For
+each item report done, already done in its phase, or needs a waiver with
+a reason. Plan first.
+```
+
+**Sources (checked Sep 26, 2026)**
+
+- Apple TN3192, migrating from `UIRequiresFullScreen`: https://developer.apple.com/documentation/technotes/tn3192-migrating-your-app-from-the-deprecated-uirequiresfullscreen-key
+- Apple TN3208, launch screen requirement: https://developer.apple.com/documentation/technotes/tn3208-preparing-your-apps-launch-screen-to-meet-app-store-requirements
+- Apple TN3194, account deletion and Sign in with Apple token revocation: https://developer.apple.com/documentation/technotes/tn3194-handling-account-deletions-and-revoking-tokens-for-sign-in-with-apple
+- Apple news, account deletion requirement: https://developer.apple.com/news/?id=12m75xbj
+- Apple forums, container path changes: https://developer.apple.com/forums/thread/92693
+- Apple forums, PencilKit dark mode ink conversion: https://developer.apple.com/forums/thread/701841
+- WWDC20 "What's new in PencilKit" (drawing policy, `prefersPencilOnlyDrawing`): https://developer.apple.com/videos/play/wwdc2020/10107
+- Apple, updated age ratings: https://developer.apple.com/news/?id=ks775ehf
+- Apple, submitting to the App Store (SDK minimums, accessibility labels): https://developer.apple.com/app-store/submitting
+- Apple, App Review Guidelines updates (4.1(c)): https://developer.apple.com/news/?id=ey6d8onl
+- Expo, privacy manifests: https://docs.expo.dev/guides/apple-privacy/
+- Expo, SQLite config plugin (`enableFTS`): https://docs.expo.dev/versions/latest/sdk/sqlite/
+- Clerk, Sign in with Apple on iOS: https://clerk.com/docs/ios/guides/configure/auth-strategies/sign-in-with-apple
+
 ## Phase 9 — Production release
 
 Goal: v1.0 live on the App Store with a repeatable release pipeline, monitored backend and a rollback plan. Estimate: 1 week plus App Review time.
@@ -1114,20 +1359,20 @@ checklist. Plan first.
 
 The three biggest risks are SDK 58 beta churn, React Native multi-window limits, and the exact shape of the iPadOS 27 recognition API; each has a fallback decided in advance.
 
-| Risk                                                      | Impact                                  | Fallback                                                                                                                                                                        |
-| --------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Expo SDK 58 is beta until React Native 0.88 ships         | Breaking changes mid-build              | Upgrade to SDK 58 stable at the Phase 1 → 2 boundary with the `upgrading-expo` skill; if blocked, SDK 57 with scene support opt-in                                              |
-| EAS cloud image still ships Xcode 26.6                    | Cloud builds lack iOS 27 SDK            | Build locally with Xcode 27 until EAS updates its image                                                                                                                         |
-| Multi-window with one JS runtime                          | Two notebooks side by side may not work | Ship v1.0 single-window with full Stage Manager resizing; multi-window to v1.1                                                                                                  |
-| iPadOS 27 recognition API differs from expectations       | Search quality                          | Vision text recognition fallback on rendered pages                                                                                                                              |
-| PKDrawing files grow large for dense pages                | Slow sync, storage cost                 | Compress before upload; warn at 10 MB per page                                                                                                                                  |
-| Community tells you Skia is better                        | Rewrite temptation                      | Decision is locked for v1.0; revisit only with measured evidence                                                                                                                |
-| Scope creep                                               | Never shipping                          | Everything new goes below, reviewed only after Phase 9                                                                                                                          |
-| A React Native library breaks under Bun's isolated linker | Metro resolution or native build errors | Set linker to hoisted in bunfig.toml; if still broken, the same repo moves to pnpm in about an hour                                                                             |
-| Shape snapping without a PencilKit API                    | Phase 3 overruns                        | Time-boxed spike of 3 days; if it fails, shape snapping moves to v1.1                                                                                                           |
-| App Review rejection                                      | Launch delay                            | No forced login, in-app account deletion, Sign in with Apple, accurate privacy labels, demo account in review notes; submit a TestFlight external build early to surface issues |
-| A skill gives stale or contract-breaking advice           | Casts, `any` or outdated APIs creep in  | Contract and this plan win; lint blocks violations; `hono-docs` MCP for fresh Hono docs; update or uninstall the skill                                                          |
-| No paid Apple Developer account by Phase 4                | Sign in with Apple and TestFlight blocked | Buy the account before Phase 4 starts; Phases 1–3 continue on Personal Team                                                                                                   |
+| Risk                                                      | Impact                                    | Fallback                                                                                                                                                                        |
+| --------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Expo SDK 58 is beta until React Native 0.88 ships         | Breaking changes mid-build                | Upgrade to SDK 58 stable at the Phase 1 → 2 boundary with the `upgrading-expo` skill; if blocked, SDK 57 with scene support opt-in                                              |
+| EAS cloud image still ships Xcode 26.6                    | Cloud builds lack iOS 27 SDK              | Build locally with Xcode 27 until EAS updates its image                                                                                                                         |
+| Multi-window with one JS runtime                          | Two notebooks side by side may not work   | Ship v1.0 single-window with full Stage Manager resizing; multi-window to v1.1                                                                                                  |
+| iPadOS 27 recognition API differs from expectations       | Search quality                            | Vision text recognition fallback on rendered pages                                                                                                                              |
+| PKDrawing files grow large for dense pages                | Slow sync, storage cost                   | Compress before upload; warn at 10 MB per page                                                                                                                                  |
+| Community tells you Skia is better                        | Rewrite temptation                        | Decision is locked for v1.0; revisit only with measured evidence                                                                                                                |
+| Scope creep                                               | Never shipping                            | Everything new goes below, reviewed only after Phase 9                                                                                                                          |
+| A React Native library breaks under Bun's isolated linker | Metro resolution or native build errors   | Set linker to hoisted in bunfig.toml; if still broken, the same repo moves to pnpm in about an hour                                                                             |
+| Shape snapping without a PencilKit API                    | Phase 3 overruns                          | Time-boxed spike of 3 days; if it fails, shape snapping moves to v1.1                                                                                                           |
+| App Review rejection                                      | Launch delay                              | No forced login, in-app account deletion, Sign in with Apple, accurate privacy labels, demo account in review notes; submit a TestFlight external build early to surface issues |
+| A skill gives stale or contract-breaking advice           | Casts, `any` or outdated APIs creep in    | Contract and this plan win; lint blocks violations; `hono-docs` MCP for fresh Hono docs; update or uninstall the skill                                                          |
+| No paid Apple Developer account by Phase 4                | Sign in with Apple and TestFlight blocked | Buy the account before Phase 4 starts; Phases 1–3 continue on Personal Team                                                                                                     |
 
 **Parking lot (post v1.0)**
 

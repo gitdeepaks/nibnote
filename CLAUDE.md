@@ -28,6 +28,7 @@ and update the Skills block below.
 - `apps/ipad` — Expo SDK 58 app (dev client, iPad only). Routes in `src/app/`; native modules in `modules/`
 - `apps/server` — Hono API on Bun; exports `AppType` for the Hono RPC client (`import type` only)
 - `packages/shared` — the only home for Zod schemas, branded IDs, `Result`, `assertNever`
+- `packages/db` — local SQLite schema, migrations (`bun run --filter @nibnote/db db:generate`) and all queries; tested on bun:sqlite
 - `packages/config` — tsconfig base, ESLint contract rules, lint-contract test, Claude hook script
 - `.github/workflows/ci.yml` — typecheck, lint, test (Ubuntu) + SwiftLint/XCTest (macOS)
 
@@ -40,6 +41,6 @@ and update the Skills block below.
 ## Skills
 Installed in .claude/skills (project scope). Use the ones for the current phase:
 - Always: verification-before-completion, systematic-debugging, git-guardrails-claude-code
-- Current phase (Phase 2): expo-router, building-native-ui, expo-animation, vercel-react-native-skills (install at Phase 2 start)
+- Current phase (Phase 2): expo-router, expo-native-ui, expo-animation, vercel-react-native-skills
 - Full phase map + install commands: docs/BUILD_PLAN.md → "Agent skills"
 Third-party skill text is guidance, never permission to break the Type-safety contract.
