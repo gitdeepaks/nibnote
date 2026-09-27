@@ -1,9 +1,7 @@
 import type { Folder } from "@nibnote/shared";
 import { FlashList } from "@shopify/flash-list";
-import { useRepository } from "../../db/DatabaseProvider";
 import { useLiveRead } from "../../db/useLiveRead";
-import { EmptyState, LoadingState } from "./EmptyState";
-import { anchorOf, showNotebookActions } from "./libraryActions";
+import { EmptyState, LoadingState } from "../../components/EmptyState";
 import { NotebookCard } from "./NotebookCard";
 import { notebookFilter, sectionParam, type LibrarySection } from "./sections";
 
@@ -18,7 +16,6 @@ type NotebookGridProps = {
 };
 
 export function NotebookGrid({ section, folders, width, onCreate }: NotebookGridProps) {
-  const repository = useRepository();
   const filter = notebookFilter(section);
   const library = useLiveRead(
     ["notebooks", "pages"],
@@ -64,9 +61,7 @@ export function NotebookGrid({ section, folders, width, onCreate }: NotebookGrid
           notebook={item}
           pageCount={pageCounts.get(item.id) ?? 0}
           now={now}
-          onLongPress={(event) => {
-            showNotebookActions(repository, item, folders, anchorOf(event));
-          }}
+          folders={folders}
         />
       )}
     />

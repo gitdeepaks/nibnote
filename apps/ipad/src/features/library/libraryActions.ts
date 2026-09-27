@@ -4,8 +4,9 @@ import { ActionSheetIOS, Alert, type GestureResponderEvent } from "react-native"
 import { deletePurgedFiles } from "../../db/files";
 import type { LibrarySection } from "./sections";
 
-// Native iOS menus and prompts for library items. On iPad the action sheet appears as a popover
-// anchored to the long-pressed view. Every repository failure is shown to the user, never dropped.
+// Library actions and the native prompts they need. Notebook cards offer these through Link.Menu;
+// folder rows use an action sheet, which on iPad is a popover anchored to the long-pressed view.
+// Every repository failure is shown to the user, never dropped.
 
 /** The native view tag of the pressed element, used to anchor the popover on iPad. */
 export function anchorOf(event: GestureResponderEvent): number | undefined {
@@ -46,57 +47,23 @@ function promptForName(title: string, initial: string, confirm: string, onSubmit
   );
 }
 
-function chooseFolder(repository: Repository, notebook: Notebook, folders: readonly Folder[], anchor?: number) {
-  const options = ["No Folder", ...folders.map((folder) => folder.name), "Cancel"];
-  ActionSheetIOS.showActionSheetWithOptions(
-    { title: "Move to Folder", options, cancelButtonIndex: options.length - 1, anchor },
-    (index) => {
-      if (index === options.length - 1) return;
-      const folderId = index === 0 ? null : (folders[index - 1]?.id ?? null);
-      report(repository.notebooks.update(notebook.id, { folderId }), "move the notebook");
-    },
-  );
+export function renameNotebook(repository: Repository, notebook: Notebook): void {
+  promptForName("Rename Notebook", notebook.title, "Save", (title) => {
+    report(repository.notebooks.update(notebook.id, { title }), "rename the notebook");
+  });
 }
 
-export function showNotebookActions(
-  repository: Repository,
-  notebook: Notebook,
-  folders: readonly Folder[],
-  anchor?: number,
-): void {
-  const options = [
-    "Rename",
-    notebook.isFavourite ? "Remove from Favourites" : "Add to Favourites",
-    "Move to Folder…",
-    "Move to Trash",
-    "Cancel",
-  ];
-  ActionSheetIOS.showActionSheetWithOptions(
-    { title: notebook.title, options, cancelButtonIndex: 4, destructiveButtonIndex: 3, anchor },
-    (index) => {
-      switch (index) {
-        case 0:
-          promptForName("Rename Notebook", notebook.title, "Save", (title) => {
-            report(repository.notebooks.update(notebook.id, { title }), "rename the notebook");
-          });
-          return;
-        case 1:
-          report(
-            repository.notebooks.update(notebook.id, { isFavourite: !notebook.isFavourite }),
-            "update favourites",
-          );
-          return;
-        case 2:
-          chooseFolder(repository, notebook, folders, anchor);
-          return;
-        case 3:
-          report(repository.notebooks.trash(notebook.id), "move the notebook to the trash");
-          return;
-        default:
-          return;
-      }
-    },
-  );
+export function toggleFavourite(repository: Repository, notebook: Notebook): void {
+  report(repository.notebooks.update(notebook.id, { isFavourite: !notebook.isFavourite }), "update favourites");
+}
+
+export function moveNotebook(repository: Repository, notebook: Notebook, folderId: FolderId | null): void {
+  if (folderId === notebook.folderId) return;
+  report(repository.notebooks.update(notebook.id, { folderId }), "move the notebook");
+}
+
+export function trashNotebook(repository: Repository, notebook: Notebook): void {
+  report(repository.notebooks.trash(notebook.id), "move the notebook to the trash");
 }
 
 export function createFolder(repository: Repository, parentId: FolderId | null): void {
