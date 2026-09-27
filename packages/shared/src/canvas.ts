@@ -134,12 +134,28 @@ export const CanvasErrorEvent = z
   .readonly();
 export type CanvasErrorEvent = z.infer<typeof CanvasErrorEvent>;
 
+// Lowercase hex SHA-256 of a drawing file, as written by the native store
+export const Sha256 = z.string().regex(/^[0-9a-f]{64}$/);
+
 export const SaveResult = z
   .object({
     fileUri: FileUri,
-    sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    sha256: Sha256,
     thumbnailUri: FileUri,
     strokeCount: z.number().int().nonnegative(),
   })
   .readonly();
 export type SaveResult = z.infer<typeof SaveResult>;
+
+// Module-level events: sent after every save and thumbnail render, even while the view unmounts
+export const DrawingSavedEvent = z
+  .object({
+    pageId: PageId,
+    sha256: Sha256,
+    strokeCount: z.number().int().nonnegative(),
+  })
+  .readonly();
+export type DrawingSavedEvent = z.infer<typeof DrawingSavedEvent>;
+
+export const ThumbnailWrittenEvent = z.object({ pageId: PageId }).readonly();
+export type ThumbnailWrittenEvent = z.infer<typeof ThumbnailWrittenEvent>;

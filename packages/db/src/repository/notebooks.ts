@@ -94,6 +94,12 @@ export function createNotebookQueries<R>(db: Db<R>, deps: RepositoryDeps) {
       return row === undefined ? undefined : toNotebook(row);
     },
 
+    /** A notebook that isn't in the trash; the editor and deep links open only these. */
+    getLive(id: NotebookId): Notebook | undefined {
+      const row = findLive(db, id);
+      return row === undefined ? undefined : toNotebook(row);
+    },
+
     /** Creates a notebook with its first blank page, in one transaction. */
     create(input: NewNotebook): Result<{ readonly notebook: Notebook; readonly firstPage: Page }, RepositoryError> {
       return db.transaction((tx) => {

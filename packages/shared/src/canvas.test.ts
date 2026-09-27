@@ -10,6 +10,8 @@ import {
   PageTemplate,
   PencilActionEvent,
   SaveResult,
+  DrawingSavedEvent,
+  ThumbnailWrittenEvent,
 } from "./index";
 
 const pageId = "8f14e45f-ceea-467a-9575-5e1b5c6d7a10";
@@ -176,5 +178,18 @@ describe("native events", () => {
         strokeCount: 1,
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("module events", () => {
+  test("a saved drawing carries its page, hash and stroke count", () => {
+    expect(DrawingSavedEvent.safeParse({ pageId, sha256, strokeCount: 12 }).success).toBe(true);
+    expect(ThumbnailWrittenEvent.safeParse({ pageId }).success).toBe(true);
+  });
+
+  test("reject payloads that drift from the contract", () => {
+    expect(DrawingSavedEvent.safeParse({ pageId, sha256: "A".repeat(64), strokeCount: 1 }).success).toBe(false);
+    expect(DrawingSavedEvent.safeParse({ pageId, sha256, strokeCount: -1 }).success).toBe(false);
+    expect(ThumbnailWrittenEvent.safeParse({ pageId: "page-1" }).success).toBe(false);
   });
 });
