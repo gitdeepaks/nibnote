@@ -20,7 +20,11 @@ function findPackageDir(filePath: string): string | undefined {
 }
 
 async function runScript(cwd: string, script: "typecheck" | "lint") {
-  const proc = Bun.spawn(["bun", "run", script], { cwd, stdout: "pipe", stderr: "pipe" });
+  const proc = Bun.spawn(["bun", "run", script], {
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
@@ -38,7 +42,10 @@ if (!/\.(ts|tsx)$/.test(filePath)) process.exit(0);
 const packageDir = findPackageDir(filePath);
 if (packageDir === undefined) process.exit(0);
 
-const results = await Promise.all([runScript(packageDir, "typecheck"), runScript(packageDir, "lint")]);
+const results = await Promise.all([
+  runScript(packageDir, "typecheck"),
+  runScript(packageDir, "lint"),
+]);
 const failures = results.filter((r) => r.exitCode !== 0);
 if (failures.length === 0) process.exit(0);
 
