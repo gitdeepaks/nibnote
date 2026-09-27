@@ -103,6 +103,33 @@ describe("pages", () => {
     expect(outbox()).toHaveLength(before);
   });
 
+  test("writing on a page moves its notebook to the top without queueing the notebook", () => {
+    const { repo, notebook, ids, outbox, advance } = setup(1);
+    advance(1000);
+    const other = unwrap(repo.notebooks.create(newNotebookInput("Other"))).notebook;
+    const [page] = ids;
+    if (page === undefined) throw new Error("setup");
+    expect(repo.notebooks.list({ kind: "all" }).map((n) => n.id)).toEqual([other.id, notebook.id]);
+    advance(1000);
+    const before = outbox().length;
+    unwrap(repo.pages.recordSave(page, "c".repeat(64)));
+    expect(repo.notebooks.list({ kind: "all" }).map((n) => n.id)).toEqual([notebook.id, other.id]);
+    expect(outbox().slice(before).map((row) => [row.entity, row.entityId])).toEqual([["page", page]]);
+  });
+
+  test("a notebook opens on the page it was left on, else its first page", () => {
+    const { repo, notebook, ids, outbox } = setup(3);
+    const [first, second] = ids;
+    if (first === undefined || second === undefined) throw new Error("setup");
+    expect(repo.pages.openingPage(notebook.id)?.id).toBe(first);
+    const before = outbox().length;
+    repo.pages.rememberOpenPage(notebook.id, second);
+    expect(outbox()).toHaveLength(before);
+    expect(repo.pages.openingPage(notebook.id)?.id).toBe(second);
+    unwrap(repo.pages.trash(second));
+    expect(repo.pages.openingPage(notebook.id)?.id).toBe(first);
+  });
+
   test("countsByNotebook counts live pages per notebook in one query", () => {
     const { repo, notebook, ids } = setup(3);
     const other = unwrap(repo.notebooks.create(newNotebookInput("Other"))).notebook;

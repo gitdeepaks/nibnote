@@ -92,8 +92,11 @@ describe("notebooks", () => {
   test("trash hides a notebook; restore brings it back", () => {
     const { repo } = openTestDb();
     const { notebook } = unwrap(repo.notebooks.create(newNotebookInput()));
+    expect(repo.notebooks.getLive(notebook.id)?.id).toBe(notebook.id);
     unwrap(repo.notebooks.trash(notebook.id));
     expect(repo.notebooks.list({ kind: "all" })).toEqual([]);
+    expect(repo.notebooks.getLive(notebook.id)).toBeUndefined();
+    expect(repo.notebooks.get(notebook.id)?.id).toBe(notebook.id);
     unwrap(repo.notebooks.restore(notebook.id));
     expect(repo.notebooks.list({ kind: "all" }).map((n) => n.id)).toEqual([notebook.id]);
   });

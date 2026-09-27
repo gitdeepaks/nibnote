@@ -59,14 +59,6 @@ export default function LibraryScreen() {
         </Stack.Toolbar>
       )}
       <Stack.Toolbar placement="right">
-        {__DEV__ && (
-          <Stack.Toolbar.Button
-            icon="hammer"
-            onPress={() => {
-              router.push("/dev/canvas-lab");
-            }}
-          />
-        )}
         <Stack.Toolbar.Button icon="plus" onPress={openNewNotebook} />
       </Stack.Toolbar>
     </>

@@ -1,19 +1,21 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import { useColorScheme } from "react-native";
 import { DatabaseProvider } from "../db/DatabaseProvider";
+import { CanvasSaveRecorder } from "../features/editor/CanvasSaveRecorder";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <DatabaseProvider>
+        <CanvasSaveRecorder />
         <Stack>
           <Stack.Screen name="index" />
           <Stack.Screen
             name="new-notebook"
             options={{ presentation: "formSheet", sheetGrabberVisible: true, sheetAllowedDetents: [0.8, 1] }}
           />
-          <Stack.Screen name="dev/canvas-lab" options={{ headerShown: false }} />
+          <Stack.Screen name="notebook/[notebookId]" options={{ headerBackButtonDisplayMode: "minimal" }} />
         </Stack>
       </DatabaseProvider>
     </ThemeProvider>

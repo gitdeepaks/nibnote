@@ -1,6 +1,6 @@
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
-import { colors } from "../../theme/colors";
+import { colors } from "../theme/colors";
 
 type EmptyStateProps = {
   readonly icon: SFSymbol;

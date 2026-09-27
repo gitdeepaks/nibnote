@@ -50,6 +50,18 @@ struct CanvasErrorRecord: Record {
     @Field var message: String = ""
 }
 
+/// Sent through the module after every successful save, including the flush when the view unmounts.
+struct DrawingSavedRecord: Record {
+    @Field var pageId: String = ""
+    @Field var sha256: String = ""
+    @Field var strokeCount: Int = 0
+}
+
+/// Sent through the module when a page's thumbnail file has been rewritten.
+struct ThumbnailWrittenRecord: Record {
+    @Field var pageId: String = ""
+}
+
 struct SaveResultRecord: Record {
     @Field var fileUri: String = ""
     @Field var sha256: String = ""

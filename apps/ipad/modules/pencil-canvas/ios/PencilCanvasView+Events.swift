@@ -64,6 +64,16 @@ extension PencilCanvasView {
         onCanvasError(record)
     }
 
+    /// Module-level events reach JS even while this view is unmounting. The app context outlives
+    /// every view, so callers capture it instead of the view.
+    static func emitModuleEvent(_ name: String, _ record: some Record, appContext: AppContext?) {
+        guard let appContext,
+            let module = appContext.moduleRegistry.get(moduleWithName: PencilCanvasModule.moduleName)
+                as? PencilCanvasModule
+        else { return }
+        module.sendEvent(name, record.toDictionary(appContext: appContext))
+    }
+
     private func emitPencilAction(kind: String, preferred: UIPencilPreferredAction) {
         let record = PencilActionRecord()
         record.pageId = pageId

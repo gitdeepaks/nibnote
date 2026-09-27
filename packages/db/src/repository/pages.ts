@@ -4,6 +4,7 @@ import { drawingPathFor, thumbnailPathFor } from "../paths";
 import { notebooks, pages } from "../schema";
 import { evenlySpacedKeys, keyBetween, needsRebalance } from "../sort-key";
 import { enqueue } from "./outbox";
+import { createSettingsQueries } from "./settings";
 import { toPage } from "./rows";
 import type { Db, RepositoryDeps, RepositoryError } from "./types";
 
@@ -96,7 +97,12 @@ export function insertPage<R>(
   });
 }
 
+/** Device-local memory of the page each notebook was left on. */
+const lastPageKey = (notebookId: NotebookId) => `lastPage:${notebookId}`;
+const RememberedPage = PageId.nullable();
+
 export function createPageQueries<R>(db: Db<R>, deps: RepositoryDeps) {
+  const preferences = createSettingsQueries(db);
   const findLive = (tx: Db<R>, pageId: PageId) =>
     tx
       .select()
@@ -114,6 +120,19 @@ export function createPageQueries<R>(db: Db<R>, deps: RepositoryDeps) {
   return {
     list(notebookId: NotebookId): Page[] {
       return livePages(db, notebookId).map(toPage);
+    },
+
+    /** The page to open a notebook on: the one it was left on, else its first page. */
+    openingPage(notebookId: NotebookId): Page | undefined {
+      const live = livePages(db, notebookId);
+      const remembered = preferences.get(lastPageKey(notebookId), RememberedPage, null);
+      const row = live.find((page) => page.id === remembered) ?? live[0];
+      return row === undefined ? undefined : toPage(row);
+    },
+
+    /** Remembers the page on screen. Device-local, like `markOpened`: no outbox entry. */
+    rememberOpenPage(notebookId: NotebookId, pageId: PageId): void {
+      preferences.set(lastPageKey(notebookId), RememberedPage, pageId);
     },
 
     /** Live page counts for every notebook, in one grouped query (no N+1 for the library grid). */
@@ -212,7 +231,8 @@ export function createPageQueries<R>(db: Db<R>, deps: RepositoryDeps) {
 
     /**
      * Records a completed save. An unchanged drawing (same hash) touches nothing, so autosaves of
-     * an idle page don't churn the outbox.
+     * an idle page don't churn the outbox. Writing also moves the notebook to the top of the
+     * library; its metadata didn't change, so the notebook gets no outbox entry.
      */
     recordSave(pageId: PageId, sha256: string): Result<Page, RepositoryError> {
       return db.transaction((tx) => {
@@ -226,6 +246,7 @@ export function createPageQueries<R>(db: Db<R>, deps: RepositoryDeps) {
           .where(eq(pages.id, pageId))
           .run();
         enqueue(tx, deps, "page", pageId, "upsert");
+        tx.update(notebooks).set({ updatedAt: now }).where(eq(notebooks.id, page.notebookId)).run();
         return ok(toPage({ ...page, drawingHash: sha256, thumbnailPath, updatedAt: now, isDirty: true }));
       });
     },

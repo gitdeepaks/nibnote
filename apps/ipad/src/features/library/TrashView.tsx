@@ -3,7 +3,7 @@ import { Pressable, SectionList, Text, View } from "react-native";
 import { useRepository } from "../../db/DatabaseProvider";
 import { useLiveRead } from "../../db/useLiveRead";
 import { colors } from "../../theme/colors";
-import { EmptyState, LoadingState } from "./EmptyState";
+import { EmptyState, LoadingState } from "../../components/EmptyState";
 import { deleteItemForever, restoreItem, trashItemName, type TrashItem } from "./libraryActions";
 import { relativeTime } from "./relativeTime";
 

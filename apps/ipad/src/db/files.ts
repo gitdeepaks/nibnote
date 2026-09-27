@@ -1,5 +1,16 @@
-import type { PurgedFiles } from "@nibnote/db";
+import { resolvePath, thumbnailPathFor, type PurgedFiles } from "@nibnote/db";
+import { FileUri, type Page, type PageId } from "@nibnote/shared";
 import { File, Paths } from "expo-file-system";
+
+/** The page's drawing file in Documents; the canvas reads and writes it, JS only passes the URI. */
+export function drawingFileUri(page: Page): FileUri {
+  return FileUri.parse(resolvePath(Paths.document.uri, page.drawingPath));
+}
+
+/** The page's thumbnail in Caches. It exists only after the page's first save. */
+export function thumbnailFile(pageId: PageId): File {
+  return new File(Paths.cache, thumbnailPathFor(pageId));
+}
 
 /**
  * Deletes the drawing and thumbnail files of purged rows. Rows are gone already, so a file that

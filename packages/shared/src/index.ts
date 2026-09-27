@@ -4,6 +4,7 @@ export {
   CanvasTool,
   DrawingChangedEvent,
   DrawingPolicy,
+  DrawingSavedEvent,
   FileUri,
   HexColor,
   InkType,
@@ -13,6 +14,8 @@ export {
   PencilActionEvent,
   PencilPreferredAction,
   SaveResult,
+  Sha256,
+  ThumbnailWrittenEvent,
 } from "./canvas";
 export { FolderId, NotebookId, PageId, TagId } from "./ids";
 export {

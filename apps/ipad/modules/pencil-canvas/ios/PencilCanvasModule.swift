@@ -3,8 +3,14 @@ import ExpoModulesCore
 /// `PencilCanvas` native view. The TypeScript contract lives in the build plan (Phase 1) and
 /// packages/shared/src/canvas.ts; drawing bytes never cross the bridge, only file URIs and events.
 public final class PencilCanvasModule: Module {
+    static let moduleName = "PencilCanvas"
+
     public func definition() -> ModuleDefinition {
-        Name("PencilCanvas")
+        Name(Self.moduleName)
+
+        // Save events belong to the module, not the view: the final save when the editor closes
+        // completes after the view has left the window, and the database must still hear about it.
+        Events("onDrawingSaved", "onThumbnailWritten")
 
         View(PencilCanvasView.self) {
             Events("onDrawingChanged", "onPencilAction", "onCanvasError")
