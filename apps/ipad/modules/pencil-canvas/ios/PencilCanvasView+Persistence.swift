@@ -127,7 +127,12 @@ extension PencilCanvasView {
         } catch {
             result = .failure(error)
         }
-        if case .success = result {
+        if case let .success(outcome) = result {
+            let record = DrawingSavedRecord()
+            record.pageId = request.page.pageId
+            record.sha256 = outcome.sha256
+            record.strokeCount = outcome.strokeCount
+            Self.emitModuleEvent("onDrawingSaved", record, appContext: appContext)
             refreshThumbnail(request)
         }
         let stillCurrent = request.page == page
@@ -149,8 +154,16 @@ extension PencilCanvasView {
     /// never delay it. A failed render is harmless: the next save renders it again.
     private func refreshThumbnail(_ request: SaveRequest) {
         let thumbnails = thumbnails
+        let appContext = appContext
         Task(priority: .utility) {
-            try? await thumbnails.write(request.drawing, request: request.thumbnail)
+            do throws(DrawingStoreError) {
+                try await thumbnails.write(request.drawing, request: request.thumbnail)
+            } catch {
+                return
+            }
+            let record = ThumbnailWrittenRecord()
+            record.pageId = request.page.pageId
+            Self.emitModuleEvent("onThumbnailWritten", record, appContext: appContext)
         }
     }
 
