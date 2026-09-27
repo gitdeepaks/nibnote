@@ -7,7 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "nibnote",
     "userInterfaceStyle": "automatic",
-    "platforms": ["ios"],
+    "platforms": [
+      "ios"
+    ],
     "ios": {
       "bundleIdentifier": "in.deepak.nibnote",
       "appleTeamId": "29L7CY6RTQ",
@@ -26,7 +28,8 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,
