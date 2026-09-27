@@ -17,3 +17,7 @@ export const forced = maybe!.length;
 export const ignored: number = 1;
 
 export const literal = ["pen", "pencil"] as const;
+
+// Metro ships Zod's English messages only (apps/ipad/metro.config.ts), so other locales are banned.
+import { z } from "zod";
+z.config(z.locales.fr());

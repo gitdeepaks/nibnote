@@ -69,7 +69,17 @@ export function nibnoteConfig({
         parserOptions: { projectService, tsconfigRootDir },
       },
       linterOptions: { reportUnusedDisableDirectives: "error" },
-      rules: typeSafetyRules,
+      rules: {
+        ...typeSafetyRules,
+        "no-restricted-properties": [
+          "error",
+          {
+            object: "z",
+            property: "locales",
+            message: "The app bundle ships Zod's English messages only (apps/ipad/metro.config.ts).",
+          },
+        ],
+      },
     },
   );
 }
