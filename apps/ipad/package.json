@@ -11,8 +11,10 @@
     "lint": "eslint . --max-warnings 0 --no-inline-config"
   },
   "dependencies": {
+    "@expo/ui": "~58.0.7",
     "@nibnote/db": "workspace:*",
     "@nibnote/shared": "workspace:*",
+    "@shopify/flash-list": "2.0.2",
     "drizzle-orm": "catalog:",
     "expo": "58.0.0-preview.7",
     "expo-constants": "~58.0.7",
@@ -24,6 +26,7 @@
     "expo-splash-screen": "~58.0.1",
     "expo-sqlite": "~58.0.6",
     "expo-status-bar": "~58.0.1",
+    "expo-symbols": "~58.0.2",
     "expo-system-ui": "~58.0.2",
     "react": "catalog:",
     "react-native": "0.88.0-rc.1",
@@ -35,6 +38,7 @@
     "@nibnote/config": "workspace:*",
     "@types/react": "~19.3.0",
     "eslint": "catalog:",
+    "expo-atlas": "^0.4.0",
     "jiti": "catalog:",
     "typescript": "catalog:"
   }

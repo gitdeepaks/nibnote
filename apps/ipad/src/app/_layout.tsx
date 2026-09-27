@@ -7,7 +7,14 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <DatabaseProvider>
-        <Stack screenOptions={{ headerShown: false }} />
+        <Stack>
+          <Stack.Screen name="index" />
+          <Stack.Screen
+            name="new-notebook"
+            options={{ presentation: "formSheet", sheetGrabberVisible: true, sheetAllowedDetents: [0.8, 1] }}
+          />
+          <Stack.Screen name="dev/canvas-lab" options={{ headerShown: false }} />
+        </Stack>
       </DatabaseProvider>
     </ThemeProvider>
   );

@@ -1,5 +1,5 @@
 import { err, NotebookId, ok, PageId, PageSize, type Page, type RelativePath, type Result } from "@nibnote/shared";
-import { and, desc, eq, isNull, asc } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull } from "drizzle-orm";
 import { drawingPathFor, thumbnailPathFor } from "../paths";
 import { notebooks, pages } from "../schema";
 import { evenlySpacedKeys, keyBetween, needsRebalance } from "../sort-key";
@@ -114,6 +114,17 @@ export function createPageQueries<R>(db: Db<R>, deps: RepositoryDeps) {
   return {
     list(notebookId: NotebookId): Page[] {
       return livePages(db, notebookId).map(toPage);
+    },
+
+    /** Live page counts for every notebook, in one grouped query (no N+1 for the library grid). */
+    countsByNotebook(): ReadonlyMap<NotebookId, number> {
+      const rows = db
+        .select({ notebookId: pages.notebookId, value: count() })
+        .from(pages)
+        .where(isNull(pages.deletedAt))
+        .groupBy(pages.notebookId)
+        .all();
+      return new Map(rows.map((row) => [NotebookId.parse(row.notebookId), row.value]));
     },
 
     /** Adds a blank page after `afterId`, or at the end when omitted. */

@@ -40,7 +40,14 @@ describe("type-safety contract", () => {
 
   test("allows `as const`", async () => {
     const messages = await lintFixture();
-    const constLine = 20;
+    const lines = (await Bun.file(fixture).text()).split("\n");
+    const constLine = lines.findIndex((line) => line.includes("as const")) + 1;
+    expect(constLine).toBeGreaterThan(0);
     expect(messages.filter((m) => m.line === constLine)).toEqual([]);
+  });
+
+  test("bans Zod locales, which the app bundle leaves out", async () => {
+    const messages = await lintFixture();
+    expect(messages.filter((m) => m.ruleId === "no-restricted-properties")).toHaveLength(1);
   });
 });

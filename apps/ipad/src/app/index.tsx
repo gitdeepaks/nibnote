@@ -1,41 +1,74 @@
-import { Link } from "expo-router";
-import { StyleSheet, Text, useColorScheme, View } from "react-native";
-import { DatabaseStatus } from "../features/database/DatabaseStatus";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import { useWindowDimensions, View } from "react-native";
+import { useLiveRead } from "../db/useLiveRead";
+import { showSectionPicker } from "../features/library/libraryActions";
+import { LibrarySidebar, SIDEBAR_WIDTH } from "../features/library/LibrarySidebar";
+import { NotebookGrid } from "../features/library/NotebookGrid";
+import { parseSection, sectionParam, sectionTitle, type LibrarySection } from "../features/library/sections";
+import { TrashView } from "../features/library/TrashView";
+import { colors } from "../theme/colors";
 
-export default function LibraryPlaceholder() {
-  const isDark = useColorScheme() === "dark";
+/** Below this window width the sidebar hides behind a toolbar button (Split View, narrow Stage Manager windows). */
+const COMPACT_WIDTH = 720;
+
+export default function LibraryScreen() {
+  const params = useLocalSearchParams();
+  const section = parseSection(params["section"]);
+  const { width } = useWindowDimensions();
+  const isCompact = width < COMPACT_WIDTH;
+  const folders = useLiveRead(["folders"], (repo) => repo.folders.list());
+  const folderList = folders.status === "ready" ? folders.value : [];
+
+  const select = (next: LibrarySection) => {
+    router.setParams({ section: sectionParam(next) });
+  };
+  const openNewNotebook = () => {
+    router.push(
+      section.kind === "folder"
+        ? { pathname: "/new-notebook", params: { folderId: section.folderId } }
+        : { pathname: "/new-notebook" },
+    );
+  };
+
   return (
-    <View style={[styles.container, isDark ? styles.dark : styles.light]}>
-      <Text style={[styles.title, isDark ? styles.darkText : styles.lightText]}>
-        Nibnote
-      </Text>
-      <Text
-        style={[styles.subtitle, isDark ? styles.darkText : styles.lightText]}
-      >
-        Phase 2 dev build
-      </Text>
-      {__DEV__ && <DatabaseStatus />}
-      {__DEV__ && (
-        <Link href="/dev/canvas-lab" style={styles.link}>
-          Open Canvas Lab
-        </Link>
+    <>
+      <View style={{ flex: 1, flexDirection: "row", backgroundColor: colors.background }}>
+        {!isCompact && <LibrarySidebar section={section} folders={folderList} onSelect={select} />}
+        <View style={{ flex: 1 }}>
+          {section.kind === "trash" ? (
+            <TrashView />
+          ) : (
+            <NotebookGrid
+              section={section}
+              folders={folderList}
+              width={isCompact ? width : width - SIDEBAR_WIDTH}
+              onCreate={openNewNotebook}
+            />
+          )}
+        </View>
+      </View>
+      <Stack.Screen.Title>{sectionTitle(section, folderList)}</Stack.Screen.Title>
+      {isCompact && (
+        <Stack.Toolbar placement="left">
+          <Stack.Toolbar.Button
+            icon="sidebar.left"
+            onPress={() => {
+              showSectionPicker(folderList, select);
+            }}
+          />
+        </Stack.Toolbar>
       )}
-    </View>
+      <Stack.Toolbar placement="right">
+        {__DEV__ && (
+          <Stack.Toolbar.Button
+            icon="hammer"
+            onPress={() => {
+              router.push("/dev/canvas-lab");
+            }}
+          />
+        )}
+        <Stack.Toolbar.Button icon="plus" onPress={openNewNotebook} />
+      </Stack.Toolbar>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  light: { backgroundColor: "#FAF8F3" },
-  dark: { backgroundColor: "#141414" },
-  title: { fontSize: 48, fontWeight: "700" },
-  subtitle: { fontSize: 17, opacity: 0.6 },
-  link: { marginTop: 16, fontSize: 17, color: "#0A60FF" },
-  lightText: { color: "#1C1C1E" },
-  darkText: { color: "#F2F2F7" },
-});
