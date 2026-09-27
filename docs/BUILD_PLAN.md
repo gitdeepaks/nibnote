@@ -506,7 +506,7 @@ export type PencilCanvasRef = {
 - **Recovering from `.bak` restores the primary file immediately**, so a later save can't rotate the corrupt bytes into `.bak`. A page that can't be read at all stays read-only and is never saved over.
 - **Zoom:** the minimum is the whole page (no writable-looking dead area) and the maximum is 4x. Until the user pinches, the page re-fits the width whenever the viewport changes (React Native lays views out at a provisional size first; rotation). A new page size re-fits.
 - **The template is drawn in a `CATiledLayer`** by an immutable `Sendable` drawer, so only visible tiles render and Whiteboard at 4x zoom stays within memory.
-- **The Canvas Lab** (`src/app/dev/canvas-lab.tsx`, dev builds only) is the Phase 1 test bench. It has synthetic 500/2000-stroke fills and a debug PKToolPicker toggle. Remove it when the Phase 2 editor lands.
+- **The Canvas Lab** (`src/app/dev/canvas-lab.tsx`, dev builds only) is the Phase 1 test bench. It has synthetic 500/2000-stroke fills and a debug PKToolPicker toggle. Remove it when the Phase 2 editor lands (removed in Phase 2 M3a).
 - **Known gap:** `.expo/types` (typed routes) is generated locally and gitignored, so CI typechecks `href`s less strictly than local runs.
 - **Open UX question:** in landscape, an A4 portrait page currently fits the width (scroll to read). Fitting the whole page is the alternative; decide during Phase 3 daily use.
 
@@ -557,10 +557,10 @@ Every syncable table also has `createdAt`, `updatedAt`, `deletedAt` (trash), `se
 
 **Screens (Expo Router)**
 
-- [ ] `/` Library: sidebar (All, Favourites, Recents, folders, Trash) + notebook grid with covers
-- [ ] New notebook sheet: title, cover colour, page size, default template
+- [x] `/` Library: sidebar (All, Favourites, Recents, folders, Trash) + notebook grid with covers (M2)
+- [x] New notebook sheet: title, cover colour, page size, default template (M2)
 - [ ] `/notebook/[notebookId]` Editor: the `PencilCanvas`, page strip with thumbnails, add / duplicate / reorder / delete page, swipe between pages
-- [ ] Trash: restore or delete forever; auto-purge after 30 days
+- [x] Trash: restore or delete forever; auto-purge after 30 days (M2)
 - [ ] Only the current page's canvas is mounted; neighbours are thumbnails, keeping memory flat for 300-page notebooks
 - [ ] Page grid view: all pages as thumbnails with multi-select for move, duplicate, delete
 - [ ] Tabs across the top of the editor for recently open notebooks
@@ -592,6 +592,13 @@ Phase 2 is built in five milestones, each its own PR: M1 data layer, M2 library,
 - **Favouriting doesn't reorder the library.** It writes the outbox and sets `isDirty` but keeps `updatedAt`, so a starred notebook stays in place. Rename, cover change and moving to a folder still move it to the top. This is safe for sync because metadata conflicts are decided by server receive time, not by `updatedAt`.
 - **Zod ships English only.** Zod re-exports all 64 of its error-message languages as `z.locales`. A Metro resolver in `apps/ipad/metro.config.ts` serves an English-only module in its place, and ESLint bans `z.locales`. Validation is unchanged, and users never see Zod's messages (the app shows its own copy). This took the production bundle from 4.06 MB to 3.82 MB, back under the 4 MB budget. Localising the UI will use the app's own strings.
 - **Cover contrast.** Covers and cover swatches have a hairline separator border, so the dark "Ink" cover stays visible in dark mode.
+- **M3 is two PRs (Sep 28, 2026).** M3a: the editor route, save recording, a minimal toolbar, `Link.Menu` on cards, and removing the Canvas Lab. M3b: a left vertical page strip, add/duplicate/delete pages, reordering from the page menu, and swiping between pages. Drag-to-reorder comes with the M4 page grid, together with Reanimated and Gesture Handler.
+- **Saves reach the database through module events.** The canvas autosaves in Swift, and the view's events had no hash, so pages never recorded a save. The module now emits `onDrawingSaved` (page, SHA-256, stroke count) after every save and `onThumbnailWritten` after each thumbnail render. These are module-level events, not view events: the final save runs while the view leaves the window, and the database must still hear about it. `CanvasSaveRecorder` is mounted once at the root and calls `pages.recordSave`. Drawing durability never depends on the event, because Swift writes the file first. If an event is ever lost, only the stored hash is stale, and Phase 5 hashes files before upload.
+- **Writing moves a notebook to the top.** `recordSave` bumps the notebook's `updatedAt` without an outbox entry, because its metadata didn't change.
+- **A notebook reopens where it was left.** The page on screen is kept in `settings` (`lastPage:<notebookId>`), device-local, with no migration and no outbox entry. A trashed or missing page falls back to the first page.
+- **Editor.** `/notebook/[notebookId]` parses its param with Zod. A malformed ID, or a notebook that is missing or in the trash, shows "Notebook not found"; this covers the `nibnote://notebook/<id>` deep link. One `PencilCanvas` is mounted, and changing pages swaps its `pageId` and file URI in place; the native view saves the outgoing page from a snapshot. Tools sit in a floating palette owned by the editor: pen in three colours (shown directly, with VoiceOver labels), highlighter, stroke eraser, lasso, and a Pencil-only/any-input toggle. The native bottom toolbar (`Stack.Toolbar placement="bottom"`) was tried first and rejected: expo-router 58 shows the navigation controller's toolbar but never hides it, so the tools stayed on the library after going back. The palette is the base for the Phase 3 dockable toolbar. Tool state lives in memory until Phase 3. Load and save errors show a dismissible banner with the app's own text, never the native message.
+- **Library cards are links.** Tapping zooms into the editor (`Link.AppleZoom`). Long-press shows `Link.Menu` (rename, favourite, move to a folder via a submenu, trash) with a preview of the page the notebook opens on, taken from its thumbnail. The preview never mounts a second canvas, and it reads the database only while visible. Folder rows keep the action sheet, because they aren't links.
+- **The Canvas Lab is gone.** Its synthetic-stroke fills and a new "Add 300 pages" live in a Developer menu (hammer icon) in the editor, shown only when `__DEV__` is true, for the M5 performance checks. The production bundle is 3.84 MB after M3a (3.82 MB after M2; budget < 4 MB).
 
 **Exit criteria**
 
