@@ -11,6 +11,7 @@ import {
   PencilActionEvent,
   SaveResult,
   DrawingSavedEvent,
+  PageSwipeEvent,
   ThumbnailWrittenEvent,
 } from "./index";
 
@@ -191,5 +192,16 @@ describe("module events", () => {
     expect(DrawingSavedEvent.safeParse({ pageId, sha256: "A".repeat(64), strokeCount: 1 }).success).toBe(false);
     expect(DrawingSavedEvent.safeParse({ pageId, sha256, strokeCount: -1 }).success).toBe(false);
     expect(ThumbnailWrittenEvent.safeParse({ pageId: "page-1" }).success).toBe(false);
+  });
+});
+
+describe("PageSwipeEvent", () => {
+  test("carries the page and a direction", () => {
+    expect(PageSwipeEvent.safeParse({ pageId, direction: "next" }).success).toBe(true);
+    expect(PageSwipeEvent.safeParse({ pageId, direction: "previous" }).success).toBe(true);
+  });
+
+  test("rejects unknown directions", () => {
+    expect(PageSwipeEvent.safeParse({ pageId, direction: "up" }).success).toBe(false);
   });
 });

@@ -115,6 +115,15 @@ export const PencilActionEvent = z
   .readonly();
 export type PencilActionEvent = z.infer<typeof PencilActionEvent>;
 
+// A one-finger swipe on the page: left turns to the next page, right to the previous one
+export const PageSwipeEvent = z
+  .object({
+    pageId: PageId,
+    direction: z.enum(["next", "previous"]),
+  })
+  .readonly();
+export type PageSwipeEvent = z.infer<typeof PageSwipeEvent>;
+
 export const CanvasErrorCode = z.enum([
   "fileCorrupt",
   "readFailed",

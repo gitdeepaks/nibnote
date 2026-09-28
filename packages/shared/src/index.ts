@@ -10,6 +10,7 @@ export {
   InkType,
   PAGE_SIZES,
   PageSize,
+  PageSwipeEvent,
   PageTemplate,
   PencilActionEvent,
   PencilPreferredAction,
