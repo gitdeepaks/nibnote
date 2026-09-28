@@ -59,7 +59,7 @@ export function LibrarySidebar({ section, folders, onSelect }: LibrarySidebarPro
   const folderRow = (folder: Folder, indent: boolean) => (
     <SidebarRow
       key={folder.id}
-      icon="folder"
+      icon={folder.role === "inbox" ? "tray" : "folder"}
       label={folder.name}
       indent={indent}
       selected={isFolder(folder)}
