@@ -19,6 +19,13 @@ enum PageGeometry {
         return min(max(fitWidth, minimumZoom(page: page, viewport: viewport)), maximumZoom)
     }
 
+    /// A finger swipe turns the page only while the whole page width is on screen. Zoomed in, a
+    /// horizontal swipe must pan the page instead.
+    static func allowsPageSwipe(page: CGSize, zoom: CGFloat, viewport: CGSize) -> Bool {
+        guard page.width > 0, viewport.width > 0 else { return false }
+        return page.width * zoom <= viewport.width + 0.5
+    }
+
     /// Insets that keep the page centred when it is smaller than the viewport.
     static func centeringInsets(page: CGSize, zoom: CGFloat, viewport: CGSize) -> UIEdgeInsets {
         let horizontal = max(0, (viewport.width - page.width * zoom) / 2)

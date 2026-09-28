@@ -21,6 +21,7 @@ export type Repository = ReturnType<typeof createRepository>;
 export type { MigrationBundle } from "./migration-bundle";
 export { pendingMigrationCount } from "./migration-status";
 export { migrationBundle } from "./migrations.generated";
+export { neighbourAfterRemoval, placementFor, type PageMove } from "./page-moves";
 export { drawingPathFor, resolvePath, thumbnailPathFor } from "./paths";
 export type {
   NewNotebook,

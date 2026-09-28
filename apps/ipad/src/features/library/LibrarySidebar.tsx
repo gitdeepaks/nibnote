@@ -3,7 +3,8 @@ import { SymbolView, type SFSymbol } from "expo-symbols";
 import { Pressable, ScrollView, Text, View, type GestureResponderEvent } from "react-native";
 import { useRepository } from "../../db/DatabaseProvider";
 import { colors } from "../../theme/colors";
-import { anchorOf, createFolder, showFolderActions } from "./libraryActions";
+import { anchorOf } from "../../components/popoverAnchor";
+import { createFolder, showFolderActions } from "./libraryActions";
 import type { LibrarySection } from "./sections";
 
 export const SIDEBAR_WIDTH = 280;

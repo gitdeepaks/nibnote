@@ -1,9 +1,10 @@
-import type { DrawingPolicy, Notebook, NotebookId, Page, PageId, PencilActionEvent } from "@nibnote/shared";
+import type { DrawingPolicy, Notebook, NotebookId, Page, PageId, PageSwipeEvent, PencilActionEvent } from "@nibnote/shared";
 import { router, Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Text, View } from "react-native";
+import { Alert, Animated, Easing, Text, View } from "react-native";
 import { PencilCanvas, type PencilCanvasRef } from "../../../modules/pencil-canvas";
 import { EmptyState, LoadingState } from "../../components/EmptyState";
+import { anchorOf } from "../../components/popoverAnchor";
 import { useRepository } from "../../db/DatabaseProvider";
 import { drawingFileUri } from "../../db/files";
 import { useLiveRead } from "../../db/useLiveRead";
@@ -11,6 +12,8 @@ import { colors } from "../../theme/colors";
 import { CanvasBanner } from "./CanvasBanner";
 import { canvasMessageFor, type CanvasMessage } from "./canvasMessages";
 import { addDevPages, DEV_PAGE_BATCH, DEV_STROKE_FILLS } from "./developerTools";
+import { addPageAfter, showPageActions, type PageActionContext } from "./pageActions";
+import { PageStrip } from "./PageStrip";
 import { ToolPalette } from "./ToolPalette";
 import { DEFAULT_PEN_COLOR, toolAfterPencilAction, toolFor, type ToolKey } from "./tools";
 
@@ -42,9 +45,14 @@ export function Editor({ notebookId }: { readonly notebookId: NotebookId }) {
     (repo) => ({ notebook: repo.notebooks.getLive(notebookId) ?? null, pages: repo.pages.list(notebookId) }),
     notebookId,
   );
-  const [selectedPageId] = useState<PageId | null>(
-    () => repository.pages.openingPage(notebookId)?.id ?? null,
-  );
+  // The live read catches up a frame after a write, so a page that was just added isn't in
+  // `pages` yet; until it is, the page on screen stays (`fallbackId`). If both are gone (trashed
+  // elsewhere), the page at the same position shows instead of jumping back to page 1.
+  const [selection, setSelection] = useState<{
+    readonly pageId: PageId | null;
+    readonly fallbackId: PageId | null;
+    readonly fallbackIndex: number;
+  }>(() => ({ pageId: repository.pages.openingPage(notebookId)?.id ?? null, fallbackId: null, fallbackIndex: 0 }));
 
   useEffect(() => {
     repository.notebooks.markOpened(notebookId);
@@ -55,32 +63,47 @@ export function Editor({ notebookId }: { readonly notebookId: NotebookId }) {
     return <EmptyState icon="exclamationmark.triangle" title="Couldn't open the notebook" message={session.message} />;
   }
   const { notebook, pages } = session.value;
+  const indexOf = (pageId: PageId | null) => pages.findIndex((candidate) => candidate.id === pageId);
+  const found = indexOf(selection.pageId);
+  const fallback = indexOf(selection.fallbackId);
+  const index =
+    found >= 0 ? found : fallback >= 0 ? fallback : Math.max(0, Math.min(selection.fallbackIndex, pages.length - 1));
   // A notebook always keeps one live page, so an empty list means it was trashed meanwhile.
-  const index = Math.max(0, pages.findIndex((page) => page.id === selectedPageId));
   const page = pages[index];
   if (notebook === null || page === undefined) return <NotebookNotFound />;
   return (
     <PageEditor
       notebook={notebook}
+      pages={pages}
       page={page}
       pageNumber={index + 1}
-      pageCount={pages.length}
+      onShowPage={(pageId) => {
+        setSelection({ pageId, fallbackId: page.id, fallbackIndex: index });
+      }}
     />
   );
 }
 
 type PageEditorProps = {
   readonly notebook: Notebook;
+  readonly pages: readonly Page[];
   readonly page: Page;
   readonly pageNumber: number;
-  readonly pageCount: number;
+  readonly onShowPage: (pageId: PageId) => void;
 };
+
+/** How far a page slides in when turned by a swipe, in points. */
+const PAGE_TURN_DISTANCE = 48;
+
+/** Whether the page strip is open, kept while the app runs (persisted in Phase 3). */
+const stripPreference = { open: false };
 
 /**
  * The single mounted canvas. Changing `page` swaps the canvas's page in place: the native view
  * saves the outgoing page from a snapshot and loads the next one, so only one canvas ever exists.
  */
-function PageEditor({ notebook, page, pageNumber, pageCount }: PageEditorProps) {
+function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEditorProps) {
+  const pageCount = pages.length;
   const repository = useRepository();
   const canvasRef = useRef<PencilCanvasRef>(null);
   const [tool, setTool] = useState<ToolKey>("pen");
@@ -89,6 +112,8 @@ function PageEditor({ notebook, page, pageNumber, pageCount }: PageEditorProps) 
   const [policy, setPolicy] = useState<DrawingPolicy>("pencilOnly");
   const [history, setHistory] = useState({ pageId: page.id, canUndo: false, canRedo: false });
   const [notice, setNotice] = useState<{ readonly pageId: PageId; readonly message: CanvasMessage } | null>(null);
+  const [stripOpen, setStripOpen] = useState(stripPreference.open);
+  const [turn] = useState(() => ({ offset: new Animated.Value(0), opacity: new Animated.Value(1) }));
 
   useEffect(() => {
     repository.pages.rememberOpenPage(notebook.id, page.id);
@@ -109,6 +134,31 @@ function PageEditor({ notebook, page, pageNumber, pageCount }: PageEditorProps) 
     selectTool(toolAfterPencilAction(event.preferredAction, tool, previousTool));
   };
 
+  const pageActions = (): PageActionContext => ({
+    repository,
+    notebookId: notebook.id,
+    order: pages.map((candidate) => candidate.id),
+    currentPageId: page.id,
+    canvas: canvasRef.current,
+    showPage: onShowPage,
+  });
+
+  const handlePageSwipe = (event: PageSwipeEvent) => {
+    if (event.pageId !== page.id) return;
+    const forward = event.direction === "next";
+    const target = pages[pageNumber - 1 + (forward ? 1 : -1)];
+    if (target === undefined) return;
+    onShowPage(target.id);
+    // A short slide in the swipe's direction, so the page change reads as turning a page.
+    turn.offset.setValue(forward ? PAGE_TURN_DISTANCE : -PAGE_TURN_DISTANCE);
+    turn.opacity.setValue(0.4);
+    const timing = { duration: 180, easing: Easing.out(Easing.poly(3)), useNativeDriver: true };
+    Animated.parallel([
+      Animated.timing(turn.offset, { ...timing, toValue: 0 }),
+      Animated.timing(turn.opacity, { ...timing, toValue: 1 }),
+    ]).start();
+  };
+
   const run = (label: string, action: (canvas: PencilCanvasRef) => Promise<void>) => {
     const canvas = canvasRef.current;
     if (canvas === null) return;
@@ -125,6 +175,22 @@ function PageEditor({ notebook, page, pageNumber, pageCount }: PageEditorProps) 
     <>
       <Stack.Screen.Title>{notebook.title}</Stack.Screen.Title>
       <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          icon="sidebar.left"
+          accessibilityLabel={stripOpen ? "Hide pages" : "Show pages"}
+          selected={stripOpen}
+          onPress={() => {
+            stripPreference.open = !stripOpen;
+            setStripOpen(!stripOpen);
+          }}
+        />
+        <Stack.Toolbar.Button
+          icon="doc.badge.plus"
+          accessibilityLabel="Add a page after this one"
+          onPress={() => {
+            addPageAfter(pageActions(), page.id);
+          }}
+        />
         <Stack.Toolbar.Button
           icon="arrow.uturn.backward"
           accessibilityLabel="Undo"
@@ -169,65 +235,80 @@ function PageEditor({ notebook, page, pageNumber, pageCount }: PageEditorProps) 
           </Stack.Toolbar.Menu>
         )}
       </Stack.Toolbar>
-      <View style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
-        <PencilCanvas
-          ref={canvasRef}
-          style={{ flex: 1 }}
-          pageId={page.id}
-          drawingFileUri={drawingFileUri(page)}
-          pageSize={{ widthPt: page.widthPt, heightPt: page.heightPt }}
-          template={page.template}
-          tool={toolFor(tool, penColor)}
-          drawingPolicy={policy}
-          onDrawingChanged={(event) => {
-            setHistory({ pageId: event.pageId, canUndo: event.canUndo, canRedo: event.canRedo });
-          }}
-          onPencilAction={handlePencilAction}
-          onCanvasError={(event) => {
-            console.warn(`Canvas ${event.code} on page ${event.pageId}: ${event.message}`);
-            const next = canvasMessageFor(event);
-            if (next !== null) setNotice({ pageId: event.pageId, message: next });
-          }}
-        />
-        <ToolPalette
-          tool={tool}
-          penColor={penColor}
-          policy={policy}
-          onSelectTool={selectTool}
-          onSelectPenColor={(color) => {
-            setPenColor(color);
-            selectTool("pen");
-          }}
-          onTogglePolicy={() => {
-            setPolicy(policy === "pencilOnly" ? "anyInput" : "pencilOnly");
-          }}
-        />
-        <View pointerEvents="box-none" style={{ position: "absolute", top: 12, left: 0, right: 0, gap: 8 }}>
-          <Text
-            accessibilityLabel={`Page ${String(pageNumber)} of ${String(pageCount)}`}
-            style={{
-              alignSelf: "flex-end",
-              marginRight: 16,
-              paddingVertical: 4,
-              paddingHorizontal: 10,
-              borderRadius: 10,
-              overflow: "hidden",
-              fontSize: 13,
-              fontVariant: ["tabular-nums"],
-              color: colors.secondaryLabel,
-              backgroundColor: colors.secondaryBackground,
+      <View style={{ flex: 1, flexDirection: "row" }}>
+        {stripOpen && (
+          <PageStrip
+            pages={pages}
+            currentPageId={page.id}
+            onSelect={onShowPage}
+            onLongPress={(target, number, event) => {
+              showPageActions(pageActions(), target, number, anchorOf(event));
             }}
-          >
-            {`${String(pageNumber)} / ${String(pageCount)}`}
-          </Text>
-          {message !== null && (
-            <CanvasBanner
-              message={message}
-              onDismiss={() => {
-                setNotice(null);
+          />
+        )}
+        <View style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
+          <Animated.View style={{ flex: 1, opacity: turn.opacity, transform: [{ translateX: turn.offset }] }}>
+            <PencilCanvas
+              ref={canvasRef}
+              style={{ flex: 1 }}
+              pageId={page.id}
+              drawingFileUri={drawingFileUri(page)}
+              pageSize={{ widthPt: page.widthPt, heightPt: page.heightPt }}
+              template={page.template}
+              tool={toolFor(tool, penColor)}
+              drawingPolicy={policy}
+              onDrawingChanged={(event) => {
+                setHistory({ pageId: event.pageId, canUndo: event.canUndo, canRedo: event.canRedo });
               }}
+              onPencilAction={handlePencilAction}
+              onCanvasError={(event) => {
+                console.warn(`Canvas ${event.code} on page ${event.pageId}: ${event.message}`);
+                const next = canvasMessageFor(event);
+                if (next !== null) setNotice({ pageId: event.pageId, message: next });
+              }}
+              onPageSwipe={handlePageSwipe}
             />
-          )}
+          </Animated.View>
+          <ToolPalette
+            tool={tool}
+            penColor={penColor}
+            policy={policy}
+            onSelectTool={selectTool}
+            onSelectPenColor={(color) => {
+              setPenColor(color);
+              selectTool("pen");
+            }}
+            onTogglePolicy={() => {
+              setPolicy(policy === "pencilOnly" ? "anyInput" : "pencilOnly");
+            }}
+          />
+          <View pointerEvents="box-none" style={{ position: "absolute", top: 12, left: 0, right: 0, gap: 8 }}>
+            <Text
+              accessibilityLabel={`Page ${String(pageNumber)} of ${String(pageCount)}`}
+              style={{
+                alignSelf: "flex-end",
+                marginRight: 16,
+                paddingVertical: 4,
+                paddingHorizontal: 10,
+                borderRadius: 10,
+                overflow: "hidden",
+                fontSize: 13,
+                fontVariant: ["tabular-nums"],
+                color: colors.secondaryLabel,
+                backgroundColor: colors.secondaryBackground,
+              }}
+            >
+              {`${String(pageNumber)} / ${String(pageCount)}`}
+            </Text>
+            {message !== null && (
+              <CanvasBanner
+                message={message}
+                onDismiss={() => {
+                  setNotice(null);
+                }}
+              />
+            )}
+          </View>
         </View>
       </View>
     </>

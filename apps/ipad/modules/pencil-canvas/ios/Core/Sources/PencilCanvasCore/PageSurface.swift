@@ -60,6 +60,18 @@ final class PageSurface {
         }
     }
 
+    /// A different page opens like a fresh sheet: fit to the width, scrolled to the top. Without
+    /// this, a page of the same size would inherit the previous page's zoom and scroll position.
+    func showNewPage() {
+        userHasZoomed = false
+        resetZoom()
+    }
+
+    /// Whether a finger swipe may turn the page right now (see `PageGeometry.allowsPageSwipe`).
+    var allowsPageSwipe: Bool {
+        PageGeometry.allowsPageSwipe(page: pageSize, zoom: canvasView.zoomScale, viewport: viewport)
+    }
+
     /// Call from `scrollViewWillBeginZooming`: from now on the user's zoom is kept.
     func userWillZoom() {
         userHasZoomed = true

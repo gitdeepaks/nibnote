@@ -44,6 +44,12 @@ struct PencilActionRecord: Record {
     @Field var preferredAction: String = "ignore"
 }
 
+struct PageSwipeRecord: Record {
+    @Field var pageId: String = ""
+    /// "next" (swipe left) or "previous" (swipe right).
+    @Field var direction: String = "next"
+}
+
 struct CanvasErrorRecord: Record {
     @Field var pageId: String = ""
     @Field var code: String = ""

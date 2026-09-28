@@ -1,33 +1,13 @@
-import type { Repository, RepositoryError } from "@nibnote/db";
-import type { Folder, FolderId, Notebook, Page, Result } from "@nibnote/shared";
-import { ActionSheetIOS, Alert, type GestureResponderEvent } from "react-native";
+import type { Repository } from "@nibnote/db";
+import type { Folder, FolderId, Notebook, Page } from "@nibnote/shared";
+import { ActionSheetIOS, Alert } from "react-native";
 import { deletePurgedFiles } from "../../db/files";
+import { reportFailure } from "../../db/reportFailure";
 import type { LibrarySection } from "./sections";
 
 // Library actions and the native prompts they need. Notebook cards offer these through Link.Menu;
 // folder rows use an action sheet, which on iPad is a popover anchored to the long-pressed view.
 // Every repository failure is shown to the user, never dropped.
-
-/** The native view tag of the pressed element, used to anchor the popover on iPad. */
-export function anchorOf(event: GestureResponderEvent): number | undefined {
-  const tag = Number(event.nativeEvent.target);
-  return Number.isFinite(tag) ? tag : undefined;
-}
-
-function describe(error: RepositoryError): string {
-  switch (error.code) {
-    case "notFound":
-      return `That ${error.entity} no longer exists.`;
-    case "folderTooDeep":
-      return "Folders can be nested one level deep.";
-    case "lastPage":
-      return "A notebook needs at least one page.";
-  }
-}
-
-function report<T>(result: Result<T, RepositoryError>, action: string): void {
-  if (!result.ok) Alert.alert(`Couldn't ${action}`, describe(result.error));
-}
 
 function promptForName(title: string, initial: string, confirm: string, onSubmit: (name: string) => void): void {
   Alert.prompt(
@@ -49,26 +29,26 @@ function promptForName(title: string, initial: string, confirm: string, onSubmit
 
 export function renameNotebook(repository: Repository, notebook: Notebook): void {
   promptForName("Rename Notebook", notebook.title, "Save", (title) => {
-    report(repository.notebooks.update(notebook.id, { title }), "rename the notebook");
+    reportFailure(repository.notebooks.update(notebook.id, { title }), "rename the notebook");
   });
 }
 
 export function toggleFavourite(repository: Repository, notebook: Notebook): void {
-  report(repository.notebooks.update(notebook.id, { isFavourite: !notebook.isFavourite }), "update favourites");
+  reportFailure(repository.notebooks.update(notebook.id, { isFavourite: !notebook.isFavourite }), "update favourites");
 }
 
 export function moveNotebook(repository: Repository, notebook: Notebook, folderId: FolderId | null): void {
   if (folderId === notebook.folderId) return;
-  report(repository.notebooks.update(notebook.id, { folderId }), "move the notebook");
+  reportFailure(repository.notebooks.update(notebook.id, { folderId }), "move the notebook");
 }
 
 export function trashNotebook(repository: Repository, notebook: Notebook): void {
-  report(repository.notebooks.trash(notebook.id), "move the notebook to the trash");
+  reportFailure(repository.notebooks.trash(notebook.id), "move the notebook to the trash");
 }
 
 export function createFolder(repository: Repository, parentId: FolderId | null): void {
   promptForName(parentId === null ? "New Folder" : "New Subfolder", "", "Create", (name) => {
-    report(repository.folders.create({ name, parentId }), "create the folder");
+    reportFailure(repository.folders.create({ name, parentId }), "create the folder");
   });
 }
 
@@ -89,12 +69,12 @@ export function showFolderActions(repository: Repository, folder: Folder, anchor
       const choice = options[index];
       if (choice === "Rename") {
         promptForName("Rename Folder", folder.name, "Save", (name) => {
-          report(repository.folders.rename(folder.id, name), "rename the folder");
+          reportFailure(repository.folders.rename(folder.id, name), "rename the folder");
         });
       } else if (choice === "New Subfolder") {
         createFolder(repository, folder.id);
       } else if (choice === "Move to Trash") {
-        report(repository.folders.trash(folder.id), "move the folder to the trash");
+        reportFailure(repository.folders.trash(folder.id), "move the folder to the trash");
       }
     },
   );
@@ -128,13 +108,13 @@ export function trashItemName(item: TrashItem): string {
 export function restoreItem(repository: Repository, item: TrashItem): void {
   switch (item.kind) {
     case "folder":
-      report(repository.folders.restore(item.folder.id), "restore the folder");
+      reportFailure(repository.folders.restore(item.folder.id), "restore the folder");
       return;
     case "notebook":
-      report(repository.notebooks.restore(item.notebook.id), "restore the notebook");
+      reportFailure(repository.notebooks.restore(item.notebook.id), "restore the notebook");
       return;
     case "page":
-      report(repository.pages.restore(item.page.id), "restore the page");
+      reportFailure(repository.pages.restore(item.page.id), "restore the page");
       return;
   }
 }
@@ -149,7 +129,7 @@ export function deleteItemForever(repository: Repository, item: TrashItem): void
           ? repository.trash.deleteNotebookForever(item.notebook.id)
           : repository.trash.deletePageForever(item.page.id);
     if (result.ok) deletePurgedFiles(result.value);
-    else report(result, "delete it");
+    else reportFailure(result, "delete it");
   });
 }
 

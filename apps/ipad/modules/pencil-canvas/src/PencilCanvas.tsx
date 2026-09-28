@@ -1,6 +1,7 @@
 import {
   CanvasErrorEvent,
   DrawingChangedEvent,
+  PageSwipeEvent,
   PencilActionEvent,
   SaveResult,
   type CanvasTool,
@@ -38,6 +39,7 @@ type NativeCanvasProps = {
   readonly onDrawingChanged: (event: NativeEvent) => void;
   readonly onPencilAction: (event: NativeEvent) => void;
   readonly onCanvasError: (event: NativeEvent) => void;
+  readonly onPageSwipe: (event: NativeEvent) => void;
 };
 
 const NativePencilCanvas = requireNativeView<NativeCanvasProps>("PencilCanvas");
@@ -60,6 +62,7 @@ export type PencilCanvasProps = {
   readonly onDrawingChanged: (event: DrawingChangedEvent) => void;
   readonly onPencilAction: (event: PencilActionEvent) => void;
   readonly onCanvasError: (event: CanvasErrorEvent) => void;
+  readonly onPageSwipe: (event: PageSwipeEvent) => void;
   readonly style?: StyleProp<ViewStyle>;
   /** Debug builds only: Apple's PKToolPicker, the Phase 1 fallback from the build plan. */
   readonly debugSystemToolPicker?: boolean;
@@ -90,6 +93,7 @@ export function PencilCanvas({
   onDrawingChanged,
   onPencilAction,
   onCanvasError,
+  onPageSwipe,
   debugSystemToolPicker = false,
   ...props
 }: PencilCanvasProps) {
@@ -127,6 +131,7 @@ export function PencilCanvas({
         onPencilAction,
       )}
       onCanvasError={forward("onCanvasError", CanvasErrorEvent, onCanvasError)}
+      onPageSwipe={forward("onPageSwipe", PageSwipeEvent, onPageSwipe)}
     />
   );
 }

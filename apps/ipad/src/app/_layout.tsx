@@ -15,7 +15,12 @@ export default function RootLayout() {
             name="new-notebook"
             options={{ presentation: "formSheet", sheetGrabberVisible: true, sheetAllowedDetents: [0.8, 1] }}
           />
-          <Stack.Screen name="notebook/[notebookId]" options={{ headerBackButtonDisplayMode: "minimal" }} />
+          <Stack.Screen
+            name="notebook/[notebookId]"
+            // iOS 26 turns a right swipe anywhere into "go back", which fought page swipes and
+            // closed the notebook. Back stays on the button and the left-edge swipe.
+            options={{ headerBackButtonDisplayMode: "minimal", fullScreenGestureEnabled: false }}
+          />
         </Stack>
       </DatabaseProvider>
     </ThemeProvider>
