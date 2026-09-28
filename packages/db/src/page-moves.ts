@@ -30,9 +30,37 @@ export function placementFor(order: readonly PageId[], pageId: PageId, move: Pag
   }
 }
 
-/** The page to show once `pageId` leaves the notebook: the next page, else the previous one. */
-export function neighbourAfterRemoval(order: readonly PageId[], pageId: PageId): PageId | null {
+/**
+ * The placement that puts `pageId` at `targetIndex` in the new order (for drag and drop). The
+ * index is clamped to the page count; null when the page wouldn't move or isn't in `order`.
+ */
+export function placementForIndex(order: readonly PageId[], pageId: PageId, targetIndex: number): PagePlacement | null {
   const index = order.indexOf(pageId);
   if (index < 0) return null;
-  return order[index + 1] ?? order[index - 1] ?? null;
+  const others = order.filter((id) => id !== pageId);
+  const target = Math.min(Math.max(Math.trunc(targetIndex), 0), others.length);
+  if (target === index) return null;
+  return { afterId: target === 0 ? null : (others[target - 1] ?? null) };
+}
+
+/**
+ * The page to show when `removed` pages leave the notebook while `from` is on screen: the first
+ * remaining page after it, else the nearest one before it. Null when nothing remains.
+ */
+export function nearestRemaining(order: readonly PageId[], removed: readonly PageId[], from: PageId): PageId | null {
+  const index = order.indexOf(from);
+  if (index < 0) return null;
+  const gone = new Set(removed);
+  const after = order.slice(index).find((id) => !gone.has(id));
+  if (after !== undefined) return after;
+  for (let i = index - 1; i >= 0; i--) {
+    const id = order[i];
+    if (id !== undefined && !gone.has(id)) return id;
+  }
+  return null;
+}
+
+/** The page to show once `pageId` leaves the notebook: the next page, else the previous one. */
+export function neighbourAfterRemoval(order: readonly PageId[], pageId: PageId): PageId | null {
+  return nearestRemaining(order, [pageId], pageId);
 }

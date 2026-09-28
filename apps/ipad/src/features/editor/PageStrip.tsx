@@ -1,11 +1,9 @@
 import type { Page, PageId } from "@nibnote/shared";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
-import { Image } from "expo-image";
 import { useEffect, useRef } from "react";
 import { Pressable, StyleSheet, Text, View, type GestureResponderEvent } from "react-native";
-import { thumbnailFile } from "../../db/files";
 import { colors } from "../../theme/colors";
-import { useThumbnailVersion } from "./thumbnailVersions";
+import { PagePaper } from "./PagePaper";
 
 export const PAGE_STRIP_WIDTH = 150;
 const THUMBNAIL_WIDTH = 104;
@@ -15,8 +13,6 @@ const THUMBNAIL_WIDTH = 104;
  * page far down left gaps until the rows above were measured.
  */
 const THUMBNAIL_BOX_HEIGHT = Math.round(THUMBNAIL_WIDTH * (842 / 595));
-/** Pages are always white paper in v1.0 (the canvas renders in light appearance). */
-const PAPER = "#FFFFFF";
 
 type PageStripProps = {
   readonly pages: readonly Page[];
@@ -81,11 +77,6 @@ type PageThumbnailProps = {
 };
 
 function PageThumbnail({ page, pageNumber, selected, onPress, onLongPress }: PageThumbnailProps) {
-  const version = useThumbnailVersion(page.id);
-  // The page's own shape, as large as fits the uniform box.
-  const scale = Math.min(THUMBNAIL_WIDTH / page.widthPt, THUMBNAIL_BOX_HEIGHT / page.heightPt);
-  // A page that was never saved has no thumbnail file yet; it shows as blank paper.
-  const hasThumbnail = page.thumbnailPath !== null || version > 0;
   return (
     <Pressable
       accessibilityRole="button"
@@ -96,37 +87,7 @@ function PageThumbnail({ page, pageNumber, selected, onPress, onLongPress }: Pag
       onLongPress={onLongPress}
       style={{ alignItems: "center", gap: 6, paddingVertical: 8 }}
     >
-      <View
-        style={{ width: THUMBNAIL_WIDTH, height: THUMBNAIL_BOX_HEIGHT, alignItems: "center", justifyContent: "center" }}
-      >
-        <View
-          style={{
-            width: page.widthPt * scale,
-            height: page.heightPt * scale,
-            borderRadius: 4,
-            borderCurve: "continuous",
-            overflow: "hidden",
-            backgroundColor: PAPER,
-            borderWidth: selected ? 3 : StyleSheet.hairlineWidth,
-            borderColor: selected ? colors.tint : colors.separator,
-          }}
-        >
-          {hasThumbnail && (
-            <Image
-              source={{
-                uri: thumbnailFile(page.id).uri,
-                // The file is rewritten in place; a new save or render must not show the old image.
-                cacheKey: `${page.id}:${page.drawingHash ?? "new"}:${String(version)}`,
-              }}
-              cachePolicy="memory"
-              recyclingKey={page.id}
-              contentFit="contain"
-              transition={0}
-              style={{ flex: 1 }}
-            />
-          )}
-        </View>
-      </View>
+      <PagePaper page={page} boxWidth={THUMBNAIL_WIDTH} boxHeight={THUMBNAIL_BOX_HEIGHT} highlighted={selected} />
       <Text
         style={{
           fontSize: 12,
