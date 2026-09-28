@@ -30,6 +30,14 @@ final class PageGeometryTests: XCTestCase {
         XCTAssertEqual(large, .zero)
     }
 
+    func testSwipesTurnPagesOnlyWhenTheWholeWidthIsVisible() {
+        let fit = PageGeometry.initialZoom(page: a4Page, viewport: portraitIPad)
+        XCTAssertTrue(PageGeometry.allowsPageSwipe(page: a4Page, zoom: fit, viewport: portraitIPad))
+        XCTAssertTrue(PageGeometry.allowsPageSwipe(page: whiteboard, zoom: 0.4, viewport: landscapeIPad))
+        XCTAssertFalse(PageGeometry.allowsPageSwipe(page: a4Page, zoom: fit * 1.5, viewport: portraitIPad))
+        XCTAssertFalse(PageGeometry.allowsPageSwipe(page: a4Page, zoom: fit, viewport: .zero))
+    }
+
     func testDegenerateSizesFallBackToOne() {
         XCTAssertEqual(PageGeometry.minimumZoom(page: .zero, viewport: portraitIPad), 1)
         XCTAssertEqual(PageGeometry.initialZoom(page: a4Page, viewport: .zero), 1)

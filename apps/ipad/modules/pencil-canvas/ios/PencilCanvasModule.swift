@@ -13,7 +13,7 @@ public final class PencilCanvasModule: Module {
         Events("onDrawingSaved", "onThumbnailWritten")
 
         View(PencilCanvasView.self) {
-            Events("onDrawingChanged", "onPencilAction", "onCanvasError")
+            Events("onDrawingChanged", "onPencilAction", "onCanvasError", "onPageSwipe")
 
             Prop("pageId") { (view: PencilCanvasView, value: String) in
                 view.pageId = value

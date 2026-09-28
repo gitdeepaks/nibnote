@@ -23,6 +23,7 @@ final class PencilCanvasView: ExpoView {
     let onDrawingChanged = EventDispatcher()
     let onPencilAction = EventDispatcher()
     let onCanvasError = EventDispatcher()
+    let onPageSwipe = EventDispatcher()
 
     let canvasView = PageCanvasView()
     let store = DrawingStore()
@@ -30,6 +31,10 @@ final class PencilCanvasView: ExpoView {
     private(set) lazy var surface = PageSurface(canvasView: canvasView)
     private(set) lazy var autosave = AutosaveScheduler { [weak self] in
         await self?.saveCurrentPage()
+    }
+    /// Gesture delegates are weak, so the view keeps the swipe gate alive.
+    private(set) lazy var pageSwipeGate = PageSwipeGate { [weak self] in
+        self?.allowsPageSwipe ?? false
     }
     private let toolPicker = PKToolPicker()
     private let pencilInteraction = UIPencilInteraction()
@@ -72,6 +77,7 @@ final class PencilCanvasView: ExpoView {
         _ = surface
         pencilInteraction.delegate = self
         addInteraction(pencilInteraction)
+        installPageSwipes()
         NotificationCenter.default.addObserver(
             self, selector: #selector(appWillResignActive),
             name: UIApplication.willResignActiveNotification, object: nil)
@@ -144,6 +150,7 @@ final class PencilCanvasView: ExpoView {
         }
         surface.configure(pageSize: pageSize, template: template)
         if pageChanged, let next {
+            surface.showNewPage()
             load(next)
         }
         for error in propErrors {
