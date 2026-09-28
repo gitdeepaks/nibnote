@@ -13,6 +13,7 @@ import { CanvasBanner } from "./CanvasBanner";
 import { canvasMessageFor, type CanvasMessage } from "./canvasMessages";
 import { addDevPages, DEV_PAGE_BATCH, DEV_STROKE_FILLS } from "./developerTools";
 import { addPageAfter, showPageActions, type PageActionContext } from "./pageActions";
+import { PageGrid } from "./PageGrid";
 import { PageStrip } from "./PageStrip";
 import { ToolPalette } from "./ToolPalette";
 import { DEFAULT_PEN_COLOR, toolAfterPencilAction, toolFor, type ToolKey } from "./tools";
@@ -113,6 +114,7 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
   const [history, setHistory] = useState({ pageId: page.id, canUndo: false, canRedo: false });
   const [notice, setNotice] = useState<{ readonly pageId: PageId; readonly message: CanvasMessage } | null>(null);
   const [stripOpen, setStripOpen] = useState(stripPreference.open);
+  const [showingGrid, setShowingGrid] = useState(false);
   const [turn] = useState(() => ({ offset: new Animated.Value(0), opacity: new Animated.Value(1) }));
 
   useEffect(() => {
@@ -171,10 +173,34 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
     })();
   };
 
+  if (showingGrid) {
+    return (
+      <PageGrid
+        pages={pages}
+        currentPageId={page.id}
+        actions={pageActions}
+        onOpenPage={(pageId) => {
+          onShowPage(pageId);
+          setShowingGrid(false);
+        }}
+        onClose={() => {
+          setShowingGrid(false);
+        }}
+      />
+    );
+  }
+
   return (
     <>
       <Stack.Screen.Title>{notebook.title}</Stack.Screen.Title>
       <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          icon="square.grid.2x2"
+          accessibilityLabel="All pages"
+          onPress={() => {
+            setShowingGrid(true);
+          }}
+        />
         <Stack.Toolbar.Button
           icon="sidebar.left"
           accessibilityLabel={stripOpen ? "Hide pages" : "Show pages"}
