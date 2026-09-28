@@ -559,9 +559,9 @@ Every syncable table also has `createdAt`, `updatedAt`, `deletedAt` (trash), `se
 
 - [x] `/` Library: sidebar (All, Favourites, Recents, folders, Trash) + notebook grid with covers (M2)
 - [x] New notebook sheet: title, cover colour, page size, default template (M2)
-- [ ] `/notebook/[notebookId]` Editor: the `PencilCanvas`, page strip with thumbnails, add / duplicate / reorder / delete page, swipe between pages
+- [x] `/notebook/[notebookId]` Editor: the `PencilCanvas`, page strip with thumbnails, add / duplicate / reorder / delete page, swipe between pages (M3a, M3b)
 - [x] Trash: restore or delete forever; auto-purge after 30 days (M2)
-- [ ] Only the current page's canvas is mounted; neighbours are thumbnails, keeping memory flat for 300-page notebooks
+- [x] Only the current page's canvas is mounted; neighbours are thumbnails, keeping memory flat for 300-page notebooks (M3a, M3b)
 - [ ] Page grid view: all pages as thumbnails with multi-select for move, duplicate, delete
 - [ ] Tabs across the top of the editor for recently open notebooks
 - [ ] Daily note: one tap opens or creates today's page in a Daily notebook
@@ -599,6 +599,12 @@ Phase 2 is built in five milestones, each its own PR: M1 data layer, M2 library,
 - **Editor.** `/notebook/[notebookId]` parses its param with Zod. A malformed ID, or a notebook that is missing or in the trash, shows "Notebook not found"; this covers the `nibnote://notebook/<id>` deep link. One `PencilCanvas` is mounted, and changing pages swaps its `pageId` and file URI in place; the native view saves the outgoing page from a snapshot. Tools sit in a floating palette owned by the editor: pen in three colours (shown directly, with VoiceOver labels), highlighter, stroke eraser, lasso, and a Pencil-only/any-input toggle. The native bottom toolbar (`Stack.Toolbar placement="bottom"`) was tried first and rejected: expo-router 58 shows the navigation controller's toolbar but never hides it, so the tools stayed on the library after going back. The palette is the base for the Phase 3 dockable toolbar. Tool state lives in memory until Phase 3. Load and save errors show a dismissible banner with the app's own text, never the native message.
 - **Library cards are links.** Tapping zooms into the editor (`Link.AppleZoom`). Long-press shows `Link.Menu` (rename, favourite, move to a folder via a submenu, trash) with a preview of the page the notebook opens on, taken from its thumbnail. The preview never mounts a second canvas, and it reads the database only while visible. Folder rows keep the action sheet, because they aren't links.
 - **The Canvas Lab is gone.** Its synthetic-stroke fills and a new "Add 300 pages" live in a Developer menu (hammer icon) in the editor, shown only when `__DEV__` is true, for the M5 performance checks. The production bundle is 3.84 MB after M3a (3.82 MB after M2; budget < 4 MB).
+- **M3b (Sep 28, 2026). Page strip.** A left column of page thumbnails (FlashList v2), hidden by default and toggled from the header. Its open state is kept while the app runs; Phase 3 persists it. It follows the current page. Every cell has the same height (an A4 portrait box; other page shapes fit inside), because mixed heights left gaps when jumping far down a 600-page notebook. Thumbnails use `expo-image` with a cache key built from the page's hash and a version that `onThumbnailWritten` bumps. The file is rewritten in place, so a plain URI would show stale images. A page with no thumbnail yet shows as blank paper. `expo-image` adds 40 KB: the bundle is 3.88 MB.
+- **Page actions.** The header "+" adds a page after the current one and opens it. Long-pressing a thumbnail opens an action sheet: add after, duplicate, move to start/earlier/later/end, and trash. Moves that aren't possible are hidden. Duplicating the current page saves it first and copies the drawing and its thumbnail, so the copy appears at once. Trashing the current page opens the next page, else the previous one. The last page can't be trashed. The index arithmetic for moves and neighbours lives in `packages/db/src/page-moves.ts`, with tests.
+- **Page selection survives the live read's one-frame lag.** A page that was just added isn't in the list yet, and a page trashed elsewhere disappears. The editor keeps the previously shown page, or the same position, instead of falling back to page 1.
+- **Swiping between pages is native.** A one-finger `UISwipeGestureRecognizer` in the canvas module emits `onPageSwipe`: left is next, right is previous. It only starts when the whole page width is visible (`PageGeometry.allowsPageSwipe`, with XCTest) and in Pencil-only mode, because with any input a finger draws. Its delegate is a separate object, since `UIView` already defines `gestureRecognizerShouldBegin(_:)`. A swipe slides the page in by 48 pt with a fade, over 180 ms, on the native driver.
+- **A new page opens fresh.** Switching pages resets to fit-width at the top. Before this, a page of the same size inherited the previous page's zoom and scroll.
+- **The iOS 26 full-screen back swipe is off in the editor** (`fullScreenGestureEnabled: false`), because a right swipe anywhere closed the notebook. The left-edge swipe and the back button still go back. Ideas for making the edge swipe safe are in the Parking lot.
 
 **Exit criteria**
 
@@ -1401,3 +1407,9 @@ The three biggest risks are SDK 58 beta churn, React Native multi-window limits,
 - [ ] Re-evaluate PaperKit (`PaperMarkupViewController`) for v1.1 text boxes, shapes and images, and `PaperMarkup.indexableContent` for search (see Phase 0 decisions)
 - [ ] Upgrade to TypeScript 7 once typescript-eslint supports it
 - [ ] Positioning and USP (for example, a notebook for engineers with DSA and system-design templates) — revisit after v1.0 launch
+- [ ] Editor navigation ideas (from M3b testing, Sep 28, 2026). The left-edge back swipe can still close a notebook when a page swipe starts near the edge.
+  - Writing guard: no back swipe while writing, or for ~2 s after the last stroke.
+  - Pinch to close: pinching the page below fit size closes the notebook, with the zoom back onto its cover.
+  - Page scrubber: drag on the page counter to preview and jump to any page.
+  - Interactive page turn that follows the finger (needs Reanimated, M4 or later).
+  - A haptic tick on each page turn.
