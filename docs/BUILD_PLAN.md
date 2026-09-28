@@ -562,7 +562,7 @@ Every syncable table also has `createdAt`, `updatedAt`, `deletedAt` (trash), `se
 - [x] `/notebook/[notebookId]` Editor: the `PencilCanvas`, page strip with thumbnails, add / duplicate / reorder / delete page, swipe between pages (M3a, M3b)
 - [x] Trash: restore or delete forever; auto-purge after 30 days (M2)
 - [x] Only the current page's canvas is mounted; neighbours are thumbnails, keeping memory flat for 300-page notebooks (M3a, M3b)
-- [ ] Page grid view: all pages as thumbnails with multi-select for move, duplicate, delete
+- [x] Page grid view: all pages as thumbnails with multi-select for move, duplicate, delete (M4a)
 - [ ] Tabs across the top of the editor for recently open notebooks
 - [ ] Daily note: one tap opens or creates today's page in a Daily notebook
 - [ ] Quick Note: one tap creates a page in an Inbox folder (Spotlight and Shortcuts entry points in Phase 7)
@@ -605,6 +605,10 @@ Phase 2 is built in five milestones, each its own PR: M1 data layer, M2 library,
 - **Swiping between pages is native.** A one-finger `UISwipeGestureRecognizer` in the canvas module emits `onPageSwipe`: left is next, right is previous. It only starts when the whole page width is visible (`PageGeometry.allowsPageSwipe`, with XCTest) and in Pencil-only mode, because with any input a finger draws. Its delegate is a separate object, since `UIView` already defines `gestureRecognizerShouldBegin(_:)`. A swipe slides the page in by 48 pt with a fade, over 180 ms, on the native driver.
 - **A new page opens fresh.** Switching pages resets to fit-width at the top. Before this, a page of the same size inherited the previous page's zoom and scroll.
 - **The iOS 26 full-screen back swipe is off in the editor** (`fullScreenGestureEnabled: false`), because a right swipe anywhere closed the notebook. The left-edge swipe and the back button still go back. Ideas for making the edge swipe safe are in the Parking lot.
+- **M4 is two PRs (Sep 28, 2026).** M4a: the page grid, multi-select and drag to reorder. M4b: notebook tabs, Daily note and Quick Note, with a schema migration (`pages.dailyDate`; a `role` on notebooks and folders, so Phase 5 sync never creates a second Daily notebook). Quick Note creates a new one-page notebook in an Inbox folder each time. Tabs persist across restarts (device-local).
+- **Drag uses React Native's PanResponder and Animated, not Reanimated.** Measured on Sep 28, 2026: importing Reanimated or Gesture Handler (Gesture Handler pulls in Reanimated) takes the production bundle from 3.88 MB to 5.05 MB, against the 4 MB budget. Only installing them adds nothing. Revisit Reanimated in Phase 3, if its animations need it, together with the budget. With the grid, the bundle is 3.90 MB after M4a.
+- **Page grid (M4a).** The grid button (⊞) toggles between the page and a grid of every page, in the same place in the header. The canvas unmounts while the grid shows (it saves on the way out), so only thumbnails are in memory. Cells have one size, so layout and drag hit-testing are plain arithmetic (`gridLayout.ts`) and work for cells that aren't rendered. Long-press lifts a page: a floating copy follows the finger, a dashed box marks where it lands, and the list auto-scrolls near its edges. Select mode picks pages to duplicate (each copy right after its source, with its drawing and thumbnail), move to the end of another notebook, or trash. Moved pages keep their drawing file where it is, because paths are stored per page. The last page can't leave a notebook, and a batch fails as a whole. The batch queries (`duplicateMany`, `trashMany`, `moveToNotebook`) and the helpers (`placementForIndex`, `nearestRemaining`) are tested.
+- **Watch item (M5).** After moving pages in the 601-page notebook, the grid took a moment to show on first use. The database part measures about 4 ms, so the likely cause is thumbnails decoding cold from disk. Profile it on the iPad in M5, against the 300-page criterion.
 
 **Exit criteria**
 
