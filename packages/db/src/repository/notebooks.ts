@@ -8,6 +8,7 @@ import {
   PageId,
   type FolderId,
   type HexColor,
+  type NotebookRole,
   type Notebook,
   type Page,
   type PageSize,
@@ -42,6 +43,37 @@ export type NotebookPatch = {
   readonly isFavourite?: boolean;
   readonly folderId?: FolderId | null;
 };
+
+type NotebookRow = typeof notebooks.$inferSelect;
+
+/** Inserts a notebook row (no pages) and queues it for sync. Call inside a transaction. */
+export function insertNotebook<R>(
+  tx: Db<R>,
+  deps: RepositoryDeps,
+  input: NewNotebook,
+  role: NotebookRole | null,
+): NotebookRow {
+  const now = deps.now();
+  const row: NotebookRow = {
+    id: NotebookId.parse(deps.newId()),
+    folderId: input.folderId,
+    title: normaliseTitle(input.title, DEFAULT_NOTEBOOK_TITLE),
+    coverColor: input.coverColor,
+    pageSize: JSON.stringify(input.pageSize),
+    defaultTemplate: JSON.stringify(input.defaultTemplate),
+    isFavourite: false,
+    lastOpenedAt: null,
+    role,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+    serverVersion: 0,
+    isDirty: true,
+  };
+  tx.insert(notebooks).values(row).run();
+  enqueue(tx, deps, "notebook", row.id, "upsert");
+  return row;
+}
 
 export function createNotebookQueries<R>(db: Db<R>, deps: RepositoryDeps) {
   const findLive = (tx: Db<R>, id: string) =>
@@ -106,30 +138,16 @@ export function createNotebookQueries<R>(db: Db<R>, deps: RepositoryDeps) {
         if (input.folderId !== null && !folderIsLive(tx, input.folderId)) {
           return err({ code: "notFound", entity: "folder" });
         }
-        const now = deps.now();
-        const row = {
-          id: NotebookId.parse(deps.newId()),
-          folderId: input.folderId,
-          title: normaliseTitle(input.title, DEFAULT_NOTEBOOK_TITLE),
-          coverColor: input.coverColor,
-          pageSize: JSON.stringify(input.pageSize),
-          defaultTemplate: JSON.stringify(input.defaultTemplate),
-          createdAt: now,
-          updatedAt: now,
-        };
-        tx.insert(notebooks).values(row).run();
-        enqueue(tx, deps, "notebook", row.id, "upsert");
-        const inserted = findLive(tx, row.id);
-        if (inserted === undefined) return err({ code: "notFound", entity: "notebook" });
+        const notebook = insertNotebook(tx, deps, input, null);
         const firstPage = insertPage(
           tx,
           deps,
-          row.id,
+          NotebookId.parse(notebook.id),
           PageId.parse(deps.newId()),
           keyBetween(null, null),
-          defaultShape(inserted),
+          defaultShape(notebook),
         );
-        return ok({ notebook: toNotebook(inserted), firstPage });
+        return ok({ notebook: toNotebook(notebook), firstPage });
       });
     },
 

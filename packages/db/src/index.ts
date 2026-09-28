@@ -1,7 +1,9 @@
+import { createCaptureQueries } from "./repository/capture";
 import { createFolderQueries } from "./repository/folders";
 import { createNotebookQueries } from "./repository/notebooks";
 import { createPageQueries } from "./repository/pages";
 import { createSettingsQueries } from "./repository/settings";
+import { createTabQueries } from "./repository/tabs";
 import { createTrashQueries } from "./repository/trash";
 import type { Db, RepositoryDeps } from "./repository/types";
 
@@ -13,6 +15,8 @@ export function createRepository<R>(db: Db<R>, deps: RepositoryDeps) {
     pages: createPageQueries(db, deps),
     trash: createTrashQueries(db, deps),
     settings: createSettingsQueries(db),
+    capture: createCaptureQueries(db, deps),
+    tabs: createTabQueries(db),
   };
 }
 
@@ -34,7 +38,9 @@ export type {
   NotebookFilter,
   NotebookPatch,
 } from "./repository/notebooks";
+export type { OpenedPage } from "./repository/capture";
 export type { DuplicatedPage, PagePlacement } from "./repository/pages";
+export { MAX_TABS } from "./repository/tabs";
 export {
   TRASH_RETENTION_DAYS,
   type PurgedFiles,

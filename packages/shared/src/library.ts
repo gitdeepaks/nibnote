@@ -37,12 +37,38 @@ const Lifecycle = {
   deletedAt: EpochMs.nullable(),
 };
 
+/** Names the app gives its system notebook and folder; users can rename them. */
+export const DAILY_NOTEBOOK_TITLE = "Daily";
+export const INBOX_FOLDER_NAME = "Inbox";
+
+/** A system folder the app manages (still renamable and trashable like any folder). */
+export const FolderRole = z.enum(["inbox"]);
+export type FolderRole = z.infer<typeof FolderRole>;
+
+/** A system notebook the app manages. */
+export const NotebookRole = z.enum(["daily"]);
+export type NotebookRole = z.infer<typeof NotebookRole>;
+
+/**
+ * A calendar day on the device's own calendar, as `YYYY-MM-DD`. Stored as text, so a page keeps
+ * its day when the timezone changes; "today" is recomputed from the device clock every time.
+ */
+export const LocalDate = z.iso.date().brand<"LocalDate">();
+export type LocalDate = z.infer<typeof LocalDate>;
+
+/** The local calendar day of `date` (never the UTC day). */
+export function localDateOf(date: Date): LocalDate {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return LocalDate.parse(`${String(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`);
+}
+
 export const Folder = z
   .object({
     id: FolderId,
     name: z.string().min(1).max(TITLE_MAX_LENGTH * 4),
     parentId: FolderId.nullable(),
     sortKey: z.string().min(1),
+    role: FolderRole.nullable(),
     ...Lifecycle,
   })
   .readonly();
@@ -58,6 +84,7 @@ export const Notebook = z
     defaultTemplate: PageTemplate,
     isFavourite: z.boolean(),
     lastOpenedAt: EpochMs.nullable(),
+    role: NotebookRole.nullable(),
     ...Lifecycle,
   })
   .readonly();
@@ -74,6 +101,8 @@ export const Page = z
     drawingPath: RelativePath,
     drawingHash: z.string().regex(/^[0-9a-f]{64}$/).nullable(),
     thumbnailPath: RelativePath.nullable(),
+    /** The day this page belongs to in the Daily notebook; null for every other page. */
+    dailyDate: LocalDate.nullable(),
     ...Lifecycle,
   })
   .readonly();

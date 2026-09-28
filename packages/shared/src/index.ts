@@ -20,12 +20,18 @@ export {
 } from "./canvas";
 export { FolderId, NotebookId, PageId, TagId } from "./ids";
 export {
+  DAILY_NOTEBOOK_TITLE,
   DEFAULT_FOLDER_NAME,
   DEFAULT_NOTEBOOK_TITLE,
   EpochMs,
   Folder,
+  FolderRole,
+  INBOX_FOLDER_NAME,
+  LocalDate,
+  localDateOf,
   normaliseTitle,
   Notebook,
+  NotebookRole,
   Page,
   RelativePath,
   TITLE_MAX_LENGTH,
