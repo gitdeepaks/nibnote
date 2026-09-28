@@ -1,4 +1,13 @@
-import { DEFAULT_FOLDER_NAME, err, normaliseTitle, ok, type Folder, type FolderId, type Result } from "@nibnote/shared";
+import {
+  DEFAULT_FOLDER_NAME,
+  err,
+  normaliseTitle,
+  ok,
+  type Folder,
+  type FolderId,
+  type FolderRole,
+  type Result,
+} from "@nibnote/shared";
 import { and, asc, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { folders, notebooks } from "../schema";
 import { keyBetween } from "../sort-key";
@@ -21,7 +30,12 @@ export function createFolderQueries<R>(db: Db<R>, deps: RepositoryDeps) {
     },
 
     /** Creates a folder at the top level or inside a top-level folder (one level of nesting). */
-    create(input: { readonly name: string; readonly parentId: FolderId | null }): Result<Folder, RepositoryError> {
+    create(input: {
+      readonly name: string;
+      readonly parentId: FolderId | null;
+      /** Only for folders the app manages, like the Quick Note inbox. */
+      readonly role?: FolderRole;
+    }): Result<Folder, RepositoryError> {
       return db.transaction((tx) => {
         if (input.parentId !== null) {
           const parent = findLive(tx, input.parentId);
@@ -42,6 +56,7 @@ export function createFolderQueries<R>(db: Db<R>, deps: RepositoryDeps) {
           name: normaliseTitle(input.name, DEFAULT_FOLDER_NAME),
           parentId: input.parentId,
           sortKey: keyBetween(last?.sortKey ?? null, null),
+          role: input.role ?? null,
           createdAt: now,
           updatedAt: now,
         };

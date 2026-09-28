@@ -1,4 +1,14 @@
-import { err, NotebookId, ok, PageId, PageSize, type Page, type RelativePath, type Result } from "@nibnote/shared";
+import {
+  err,
+  NotebookId,
+  ok,
+  PageId,
+  PageSize,
+  type LocalDate,
+  type Page,
+  type RelativePath,
+  type Result,
+} from "@nibnote/shared";
 import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import { drawingPathFor, thumbnailPathFor } from "../paths";
 import { notebooks, pages } from "../schema";
@@ -76,6 +86,8 @@ export function insertPage<R>(
   pageId: PageId,
   sortKey: string,
   shape: PageShape,
+  /** Only for the Daily notebook's page for that day. Copies of it are ordinary pages. */
+  dailyDate: LocalDate | null = null,
 ): Page {
   const now = deps.now();
   const row = {
@@ -86,6 +98,7 @@ export function insertPage<R>(
     widthPt: shape.widthPt,
     heightPt: shape.heightPt,
     drawingPath: drawingPathFor(notebookId, pageId),
+    dailyDate,
     createdAt: now,
     updatedAt: now,
   };

@@ -563,9 +563,9 @@ Every syncable table also has `createdAt`, `updatedAt`, `deletedAt` (trash), `se
 - [x] Trash: restore or delete forever; auto-purge after 30 days (M2)
 - [x] Only the current page's canvas is mounted; neighbours are thumbnails, keeping memory flat for 300-page notebooks (M3a, M3b)
 - [x] Page grid view: all pages as thumbnails with multi-select for move, duplicate, delete (M4a)
-- [ ] Tabs across the top of the editor for recently open notebooks
-- [ ] Daily note: one tap opens or creates today's page in a Daily notebook
-- [ ] Quick Note: one tap creates a page in an Inbox folder (Spotlight and Shortcuts entry points in Phase 7)
+- [x] Tabs across the top of the editor for recently open notebooks (M4b)
+- [x] Daily note: one tap opens or creates today's page in a Daily notebook (M4b)
+- [x] Quick Note: one tap creates a page in an Inbox folder (Spotlight and Shortcuts entry points in Phase 7) (M4b)
 - [ ] Signed-out mode is the default: the whole Phase 2 app works with no account
 
 **Type-safety focus**
@@ -609,6 +609,12 @@ Phase 2 is built in five milestones, each its own PR: M1 data layer, M2 library,
 - **Drag uses React Native's PanResponder and Animated, not Reanimated.** Measured on Sep 28, 2026: importing Reanimated or Gesture Handler (Gesture Handler pulls in Reanimated) takes the production bundle from 3.88 MB to 5.05 MB, against the 4 MB budget. Only installing them adds nothing. Revisit Reanimated in Phase 3, if its animations need it, together with the budget. With the grid, the bundle is 3.90 MB after M4a.
 - **Page grid (M4a).** The grid button (⊞) toggles between the page and a grid of every page, in the same place in the header. The canvas unmounts while the grid shows (it saves on the way out), so only thumbnails are in memory. Cells have one size, so layout and drag hit-testing are plain arithmetic (`gridLayout.ts`) and work for cells that aren't rendered. Long-press lifts a page: a floating copy follows the finger, a dashed box marks where it lands, and the list auto-scrolls near its edges. Select mode picks pages to duplicate (each copy right after its source, with its drawing and thumbnail), move to the end of another notebook, or trash. Moved pages keep their drawing file where it is, because paths are stored per page. The last page can't leave a notebook, and a batch fails as a whole. The batch queries (`duplicateMany`, `trashMany`, `moveToNotebook`) and the helpers (`placementForIndex`, `nearestRemaining`) are tested.
 - **Watch item (M5).** After moving pages in the 601-page notebook, the grid took a moment to show on first use. The database part measures about 4 ms, so the likely cause is thumbnails decoding cold from disk. Profile it on the iPad in M5, against the 300-page criterion.
+- **M4b (Sep 28, 2026). The first migration on real data.** `0001_roles_and_daily_dates` adds `folders.role` ("inbox"), `notebooks.role` ("daily") and `pages.daily_date` (`YYYY-MM-DD`, indexed). The changes are additive only. A test upgrades a database created at `0000` with rows in it and checks every row survives. On the iPad, the owner's notebooks (including the 601-page one) came through intact, with the pre-migration backup taken. Roles are not unique: two devices may each create a Daily notebook or an Inbox before syncing. The oldest live one wins, and Phase 5 must merge the rest. System rows are found by role, never by name, so renaming them is safe.
+- **Daily note.** The library's calendar button opens the Daily notebook's page for today, creating the notebook, or the page at its end, when missing. Opening it again the same day returns the same page. The day is the device's local calendar day (`localDateOf`, tested in two timezones), stored as text, so a page keeps its day when the timezone changes. The page counter shows it ("Mon, 28 Sep · 3 / 10"). A trashed Daily notebook or day is simply made again, and copies of a Daily page are ordinary pages.
+- **Quick Note.** The library's compose button creates a new one-page notebook ("Quick Note · <date, time>", A4 blank) in the Inbox folder and opens it. The Inbox is created on first use (or after it was trashed), listed first, with a tray icon.
+- **Tabs.** Open notebooks show as tabs under the editor header once two or more are open. They are kept in settings (device-local, no outbox) and survive restarts, up to 8; the tab opened longest ago closes first. Switching tabs changes the route's params in place, so tabs never stack screens and Back goes to the library. Closing the current tab shows its neighbour, and trashed notebooks drop out.
+- **The editor route takes an optional `page` param** (`/notebook/<id>?page=<pageId>`), which the Daily note uses. Without it, a notebook opens where it was left.
+- **Phase 1 bug fixed: blank A4 pages showed as dark.** When the first page matched the canvas defaults (A4, blank), `PageSurface.configure` saw no change and the paper layer stayed 0x0. The page then showed the dark canvas background, and black ink vanished in dark mode. The paper is now sized when the surface is created, with an XCTest; the owner checked the fix in light and dark mode. Bundle 3.92 MB after M4b.
 
 **Exit criteria**
 
@@ -1131,7 +1137,7 @@ iPadOS 26 deprecated `UIRequiresFullScreen`; apps must handle every orientation 
 - [ ] `[P2]` Reorder one page 200 times: `sortKey` length stays bounded; keys rebalance when they grow past a limit.
 - [ ] `[P2]` Forced migration failure restores the backup DB and shows the recovery screen.
 - [ ] `[P2]` Trash purge after 30 days runs on launch and is idempotent.
-- [ ] `[P2]` Daily note uses the device's local date and handles timezone changes.
+- [x] `[P2]` Daily note uses the device's local date and handles timezone changes. Done in Phase 2 (M4b).
 - [ ] `[P2]` Deep link `nibnote://notebook/<id>` parses params with Zod; an invalid ID shows "Not found".
 - [ ] `[P2]` Titles with emoji, very long titles and empty titles (default name) display and sort correctly.
 

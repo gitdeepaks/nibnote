@@ -33,6 +33,11 @@ export const folders = sqliteTable(
     /** One level of nesting in v1.0. */
     parentId: text("parent_id"),
     sortKey: text("sort_key").notNull(),
+    /**
+     * A system folder the app manages ("inbox"); null for the user's own folders. Not unique:
+     * two devices may each create one before syncing, and Phase 5 merges them.
+     */
+    role: text("role", { enum: ["inbox"] }),
     ...syncable,
   },
   (table) => [
@@ -57,6 +62,8 @@ export const notebooks = sqliteTable(
       .notNull()
       .default(false),
     lastOpenedAt: integer("last_opened_at"),
+    /** A system notebook the app manages ("daily"); null otherwise. Not unique, like folder roles. */
+    role: text("role", { enum: ["daily"] }),
     ...syncable,
   },
   (table) => [
@@ -85,10 +92,13 @@ export const pages = sqliteTable(
     thumbnailPath: text("thumbnail_path"),
     /** Filled in Phase 7. */
     recognizedText: text("recognized_text"),
+    /** `YYYY-MM-DD` on the device's calendar, for pages in the Daily notebook. */
+    dailyDate: text("daily_date"),
     ...syncable,
   },
   (table) => [
     index("pages_notebook_sort_idx").on(table.notebookId, table.sortKey),
+    index("pages_notebook_daily_idx").on(table.notebookId, table.dailyDate),
   ],
 );
 

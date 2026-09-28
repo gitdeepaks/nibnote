@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
   DEFAULT_NOTEBOOK_TITLE,
+  LocalDate,
+  localDateOf,
   Notebook,
   normaliseTitle,
   Page,
@@ -64,6 +66,7 @@ describe("library domain schemas", () => {
       defaultTemplate: { kind: "lined", spacingPt: 24 },
       isFavourite: false,
       lastOpenedAt: null,
+      role: null,
       ...lifecycle,
     };
     expect(Notebook.safeParse(notebook).success).toBe(true);
@@ -82,11 +85,26 @@ describe("library domain schemas", () => {
       drawingPath: `notebooks/${notebookId}/${pageId}.drawing`,
       drawingHash: null,
       thumbnailPath: null,
+      dailyDate: null,
       ...lifecycle,
     };
     expect(Page.safeParse(page).success).toBe(true);
     expect(Page.safeParse({ ...page, drawingPath: `/abs/${pageId}.drawing` }).success).toBe(false);
     expect(Page.safeParse({ ...page, widthPt: 0 }).success).toBe(false);
     expect(Page.safeParse({ ...page, drawingHash: "abc" }).success).toBe(false);
+  });
+});
+
+describe("LocalDate", () => {
+  test("is the device's calendar day, not the UTC day", () => {
+    // Local days near midnight: in India (UTC+5:30), 12:05 am is still the previous day in UTC.
+    expect(localDateOf(new Date(2026, 8, 28, 23, 30))).toBe(LocalDate.parse("2026-09-28"));
+    expect(localDateOf(new Date(2026, 0, 5, 0, 5))).toBe(LocalDate.parse("2026-01-05"));
+  });
+
+  test("rejects impossible or malformed days", () => {
+    for (const value of ["2026-02-30", "2026-9-28", "28-09-2026", ""]) {
+      expect(LocalDate.safeParse(value).success).toBe(false);
+    }
   });
 });

@@ -1,6 +1,8 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useWindowDimensions, View } from "react-native";
+import { useRepository } from "../db/DatabaseProvider";
 import { useLiveRead } from "../db/useLiveRead";
+import { openToday, startQuickNote } from "../features/library/captureActions";
 import { showSectionPicker } from "../features/library/libraryActions";
 import { LibrarySidebar, SIDEBAR_WIDTH } from "../features/library/LibrarySidebar";
 import { NotebookGrid } from "../features/library/NotebookGrid";
@@ -12,6 +14,7 @@ import { colors } from "../theme/colors";
 const COMPACT_WIDTH = 720;
 
 export default function LibraryScreen() {
+  const repository = useRepository();
   const params = useLocalSearchParams();
   const section = parseSection(params["section"]);
   const { width } = useWindowDimensions();
@@ -59,7 +62,21 @@ export default function LibraryScreen() {
         </Stack.Toolbar>
       )}
       <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button icon="plus" onPress={openNewNotebook} />
+        <Stack.Toolbar.Button
+          icon="calendar"
+          accessibilityLabel="Today's page"
+          onPress={() => {
+            openToday(repository);
+          }}
+        />
+        <Stack.Toolbar.Button
+          icon="square.and.pencil"
+          accessibilityLabel="New quick note"
+          onPress={() => {
+            startQuickNote(repository);
+          }}
+        />
+        <Stack.Toolbar.Button icon="plus" accessibilityLabel="New notebook" onPress={openNewNotebook} />
       </Stack.Toolbar>
     </>
   );

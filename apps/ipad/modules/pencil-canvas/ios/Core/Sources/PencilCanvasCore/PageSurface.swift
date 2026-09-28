@@ -26,7 +26,15 @@ final class PageSurface {
         tiledLayer.levelsOfDetail = 4
         tiledLayer.levelsOfDetailBias = 4
         canvasView.insertSubview(underlay, at: 0)
+        // Size the paper now: when the first page matches the defaults (A4, blank), `configure`
+        // sees no change and returns early, and the paper would stay 0x0 (a dark, blank page).
+        sizePaper()
         installDrawer()
+    }
+
+    /// The paper layer's size, which must always match the page.
+    var paperSize: CGSize {
+        underlay.bounds.size
     }
 
     /// Returns true when the page geometry changed (callers reset zoom for a new page size).
@@ -36,8 +44,7 @@ final class PageSurface {
         guard sizeChanged || template != self.template else { return false }
         self.pageSize = pageSize
         self.template = template
-        underlay.bounds = CGRect(origin: .zero, size: pageSize)
-        tiledLayer.frame = underlay.bounds
+        sizePaper()
         installDrawer()
         if sizeChanged {
             userHasZoomed = false
@@ -94,6 +101,11 @@ final class PageSurface {
         syncToZoom()
         let insets = canvasView.contentInset
         canvasView.contentOffset = CGPoint(x: -insets.left, y: -insets.top)
+    }
+
+    private func sizePaper() {
+        underlay.bounds = CGRect(origin: .zero, size: pageSize)
+        tiledLayer.frame = underlay.bounds
     }
 
     private func installDrawer() {

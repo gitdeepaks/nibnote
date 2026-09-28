@@ -10,6 +10,7 @@ import { drawingFileUri } from "../../db/files";
 import { useLiveRead } from "../../db/useLiveRead";
 import { colors } from "../../theme/colors";
 import { CanvasBanner } from "./CanvasBanner";
+import { formatLocalDate } from "./dates";
 import { canvasMessageFor, type CanvasMessage } from "./canvasMessages";
 import { addDevPages, DEV_PAGE_BATCH, DEV_STROKE_FILLS } from "./developerTools";
 import { addPageAfter, showPageActions, type PageActionContext } from "./pageActions";
@@ -39,7 +40,14 @@ export function NotebookNotFound() {
 }
 
 /** Loads the notebook and its pages live, then shows one page at a time on a single canvas. */
-export function Editor({ notebookId }: { readonly notebookId: NotebookId }) {
+export function Editor({
+  notebookId,
+  initialPageId,
+}: {
+  readonly notebookId: NotebookId;
+  /** A page to open on (Daily note, deep link); otherwise the page the notebook was left on. */
+  readonly initialPageId: PageId | null;
+}) {
   const repository = useRepository();
   const session = useLiveRead(
     ["notebooks", "pages"],
@@ -53,9 +61,15 @@ export function Editor({ notebookId }: { readonly notebookId: NotebookId }) {
     readonly pageId: PageId | null;
     readonly fallbackId: PageId | null;
     readonly fallbackIndex: number;
-  }>(() => ({ pageId: repository.pages.openingPage(notebookId)?.id ?? null, fallbackId: null, fallbackIndex: 0 }));
+  }>(() => ({
+    pageId: initialPageId ?? repository.pages.openingPage(notebookId)?.id ?? null,
+    fallbackId: null,
+    fallbackIndex: 0,
+  }));
 
   useEffect(() => {
+    // The tab is added before marking it opened, so it never evicts itself.
+    repository.tabs.open(notebookId);
     repository.notebooks.markOpened(notebookId);
   }, [repository, notebookId]);
 
@@ -324,7 +338,9 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
                 backgroundColor: colors.secondaryBackground,
               }}
             >
-              {`${String(pageNumber)} / ${String(pageCount)}`}
+              {page.dailyDate === null
+              ? `${String(pageNumber)} / ${String(pageCount)}`
+              : `${formatLocalDate(page.dailyDate)} · ${String(pageNumber)} / ${String(pageCount)}`}
             </Text>
             {message !== null && (
               <CanvasBanner

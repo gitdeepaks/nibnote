@@ -104,6 +104,18 @@ final class PageSurfaceTests: XCTestCase {
         XCTAssertEqual(canvas.contentSize.width, 834, accuracy: 0.5)
     }
 
+    /// Regression: a first page matching the defaults (A4, blank) left the paper at 0x0, so the
+    /// page showed the dark canvas background and black ink disappeared in dark mode.
+    @MainActor
+    func testThePaperMatchesTheFirstPageEvenWhenItMatchesTheDefaults() {
+        let canvas = PKCanvasView()
+        let surface = PageSurface(canvasView: canvas)
+        surface.configure(pageSize: CGSize(width: 595, height: 842), template: .blank)
+        XCTAssertEqual(surface.paperSize, CGSize(width: 595, height: 842))
+        surface.configure(pageSize: CGSize(width: 842, height: 595), template: .blank)
+        XCTAssertEqual(surface.paperSize, CGSize(width: 842, height: 595))
+    }
+
     @MainActor
     func testKeepsTheUsersZoomWhenTheViewportChanges() {
         let canvas = PKCanvasView()
