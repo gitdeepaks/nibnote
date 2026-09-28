@@ -141,3 +141,61 @@ describe("pages", () => {
     expect(counts.get(other.id)).toBe(1);
   });
 });
+
+describe("pages in bulk", () => {
+  test("duplicateMany puts each copy right after its source, in one transaction", () => {
+    const { repo, ids, order } = setup(3);
+    const [a, b, c] = ids;
+    if (a === undefined || b === undefined || c === undefined) throw new Error("setup");
+    const [copyOfA, copyOfC] = unwrap(repo.pages.duplicateMany([c, a]));
+    if (copyOfA === undefined || copyOfC === undefined) throw new Error("expected two copies");
+    expect(order()).toEqual([a, copyOfA.page.id, b, c, copyOfC.page.id]);
+  });
+
+  test("trashMany keeps at least one page and trashes nothing otherwise", () => {
+    const { repo, ids, order } = setup(3);
+    expect(repo.pages.trashMany(ids)).toEqual({ ok: false, error: { code: "lastPage" } });
+    expect(order()).toEqual(ids);
+    const [a, b, c] = ids;
+    if (a === undefined || b === undefined || c === undefined) throw new Error("setup");
+    unwrap(repo.pages.trashMany([a, c]));
+    expect(order()).toEqual([b]);
+  });
+
+  test("moveToNotebook appends pages to the target in order, keeping their files and sizes", () => {
+    const { repo, notebook, ids, order, outbox } = setup(3);
+    const target = unwrap(repo.notebooks.create({ ...newNotebookInput("Target"), pageSize: PAGE_SIZES.whiteboard }));
+    const [a, b, c] = ids;
+    if (a === undefined || b === undefined || c === undefined) throw new Error("setup");
+    const before = outbox().length;
+    const moved = unwrap(repo.pages.moveToNotebook([c, a], target.notebook.id));
+    expect(order()).toEqual([b]);
+    expect(order(target.notebook.id)).toEqual([target.firstPage.id, a, c]);
+    expect(moved.map((page) => page.drawingPath)).toEqual([
+      RelativePath.parse(`notebooks/${notebook.id}/${a}.drawing`),
+      RelativePath.parse(`notebooks/${notebook.id}/${c}.drawing`),
+    ]);
+    expect(moved.every((page) => page.widthPt === PAGE_SIZES.a4Portrait.widthPt)).toBe(true);
+    expect(outbox().slice(before).map((row) => row.entityId)).toEqual([a, c]);
+  });
+
+  test("moveToNotebook refuses to empty the source or to use a missing target", () => {
+    const { repo, ids } = setup(2);
+    const target = unwrap(repo.notebooks.create(newNotebookInput("Target"))).notebook;
+    expect(repo.pages.moveToNotebook(ids, target.id)).toEqual({ ok: false, error: { code: "lastPage" } });
+    unwrap(repo.notebooks.trash(target.id));
+    const [a] = ids;
+    if (a === undefined) throw new Error("setup");
+    expect(repo.pages.moveToNotebook([a], target.id)).toEqual({ ok: false, error: { code: "notFound", entity: "notebook" } });
+  });
+
+  test("a page from another notebook or a missing page fails the whole batch", () => {
+    const { repo, ids, order } = setup(2);
+    const other = unwrap(repo.notebooks.create(newNotebookInput("Other"))).firstPage;
+    const [a] = ids;
+    if (a === undefined) throw new Error("setup");
+    expect(repo.pages.duplicateMany([a, other.id])).toEqual({ ok: false, error: { code: "notFound", entity: "page" } });
+    expect(repo.pages.duplicateMany([])).toEqual({ ok: false, error: { code: "notFound", entity: "page" } });
+    expect(order()).toEqual(ids);
+  });
+});
