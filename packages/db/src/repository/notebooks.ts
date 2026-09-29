@@ -37,12 +37,31 @@ export type NewNotebook = {
   readonly folderId: FolderId | null;
 };
 
-export type NotebookPatch = {
-  readonly title?: string;
-  readonly coverColor?: HexColor;
-  readonly isFavourite?: boolean;
-  readonly folderId?: FolderId | null;
-};
+/** One change to a notebook's metadata. Each kind is explicit, so nothing is left optional. */
+export type NotebookPatch =
+  | { readonly kind: "rename"; readonly title: string }
+  | { readonly kind: "cover"; readonly coverColor: HexColor }
+  | { readonly kind: "favourite"; readonly isFavourite: boolean }
+  | { readonly kind: "move"; readonly folderId: FolderId | null };
+
+type NotebookChanges =
+  | { readonly title: string }
+  | { readonly coverColor: HexColor }
+  | { readonly isFavourite: boolean }
+  | { readonly folderId: FolderId | null };
+
+function changesFor(patch: NotebookPatch): NotebookChanges {
+  switch (patch.kind) {
+    case "rename":
+      return { title: normaliseTitle(patch.title, DEFAULT_NOTEBOOK_TITLE) };
+    case "cover":
+      return { coverColor: patch.coverColor };
+    case "favourite":
+      return { isFavourite: patch.isFavourite };
+    case "move":
+      return { folderId: patch.folderId };
+  }
+}
 
 type NotebookRow = typeof notebooks.$inferSelect;
 
@@ -121,15 +140,15 @@ export function createNotebookQueries<R>(db: Db<R>, deps: RepositoryDeps) {
       }
     },
 
-    get(id: NotebookId): Notebook | undefined {
+    get(id: NotebookId): Notebook | null {
       const row = db.select().from(notebooks).where(eq(notebooks.id, id)).get();
-      return row === undefined ? undefined : toNotebook(row);
+      return row === undefined ? null : toNotebook(row);
     },
 
     /** A notebook that isn't in the trash; the editor and deep links open only these. */
-    getLive(id: NotebookId): Notebook | undefined {
+    getLive(id: NotebookId): Notebook | null {
       const row = findLive(db, id);
-      return row === undefined ? undefined : toNotebook(row);
+      return row === undefined ? null : toNotebook(row);
     },
 
     /** Creates a notebook with its first blank page, in one transaction. */
@@ -146,6 +165,7 @@ export function createNotebookQueries<R>(db: Db<R>, deps: RepositoryDeps) {
           PageId.parse(deps.newId()),
           keyBetween(null, null),
           defaultShape(notebook),
+          null,
         );
         return ok({ notebook: toNotebook(notebook), firstPage });
       });
@@ -155,17 +175,13 @@ export function createNotebookQueries<R>(db: Db<R>, deps: RepositoryDeps) {
       return db.transaction((tx) => {
         const notebook = findLive(tx, id);
         if (notebook === undefined) return err({ code: "notFound", entity: "notebook" });
-        if (patch.folderId != null && !folderIsLive(tx, patch.folderId)) {
+        if (patch.kind === "move" && patch.folderId !== null && !folderIsLive(tx, patch.folderId)) {
           return err({ code: "notFound", entity: "folder" });
         }
         // Favouriting is a label, not an edit: it syncs but keeps the notebook's place in the library.
-        const edited = patch.title !== undefined || patch.coverColor !== undefined || patch.folderId !== undefined;
         const changes = {
-          ...(patch.title === undefined ? {} : { title: normaliseTitle(patch.title, DEFAULT_NOTEBOOK_TITLE) }),
-          ...(patch.coverColor === undefined ? {} : { coverColor: patch.coverColor }),
-          ...(patch.isFavourite === undefined ? {} : { isFavourite: patch.isFavourite }),
-          ...(patch.folderId === undefined ? {} : { folderId: patch.folderId }),
-          ...(edited ? { updatedAt: deps.now() } : {}),
+          ...changesFor(patch),
+          ...(patch.kind === "favourite" ? {} : { updatedAt: deps.now() }),
           isDirty: true,
         };
         tx.update(notebooks).set(changes).where(eq(notebooks.id, id)).run();

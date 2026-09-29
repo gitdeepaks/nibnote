@@ -16,8 +16,7 @@ import {
 } from "./index";
 
 const pageId = "8f14e45f-ceea-467a-9575-5e1b5c6d7a10";
-const drawingUri =
-  "file:///var/mobile/Containers/Data/Application/X/Documents/notebooks/n/p.drawing";
+const drawingUri = "file:///var/mobile/Containers/Data/Application/X/Documents/notebooks/n/p.drawing";
 const sha256 = "a".repeat(64);
 
 describe("HexColor", () => {
@@ -36,9 +35,7 @@ describe("HexColor", () => {
 describe("FileUri", () => {
   test("accepts absolute file URLs only", () => {
     expect(FileUri.safeParse(drawingUri).success).toBe(true);
-    expect(FileUri.safeParse("https://example.com/p.drawing").success).toBe(
-      false,
-    );
+    expect(FileUri.safeParse("https://example.com/p.drawing").success).toBe(false);
     expect(FileUri.safeParse("/var/mobile/p.drawing").success).toBe(false);
     expect(FileUri.safeParse("file://").success).toBe(false);
   });
@@ -89,9 +86,7 @@ describe("PageTemplate", () => {
 
   test("requires a sane spacing for ruled templates", () => {
     expect(PageTemplate.safeParse({ kind: "lined" }).success).toBe(false);
-    expect(PageTemplate.safeParse({ kind: "grid", spacingPt: 1 }).success).toBe(
-      false,
-    );
+    expect(PageTemplate.safeParse({ kind: "grid", spacingPt: 1 }).success).toBe(false);
   });
 });
 
@@ -103,12 +98,8 @@ describe("PAGE_SIZES", () => {
   });
 
   test("whiteboard is three A4 landscape pages per side", () => {
-    expect(PAGE_SIZES.a4Landscape.widthPt * 3).toBe(
-      PAGE_SIZES.whiteboard.widthPt,
-    );
-    expect(PAGE_SIZES.a4Landscape.heightPt * 3).toBe(
-      PAGE_SIZES.whiteboard.heightPt,
-    );
+    expect(PAGE_SIZES.a4Landscape.widthPt * 3).toBe(PAGE_SIZES.whiteboard.widthPt);
+    expect(PAGE_SIZES.a4Landscape.heightPt * 3).toBe(PAGE_SIZES.whiteboard.heightPt);
   });
 });
 

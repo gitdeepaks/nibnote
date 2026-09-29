@@ -25,4 +25,3 @@ describe("Result", () => {
     expect(describeResult(err("boom"))).toBe("error boom");
   });
 });
-

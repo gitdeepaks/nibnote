@@ -17,13 +17,7 @@ export type FileUri = z.infer<typeof FileUri>;
 
 const StrokeWidth = z.number().positive().max(100);
 
-export const InkType = z.enum([
-  "pen",
-  "fountainPen",
-  "pencil",
-  "marker",
-  "monoline",
-]);
+export const InkType = z.enum(["pen", "fountainPen", "pencil", "marker", "monoline"]);
 export type InkType = z.infer<typeof InkType>;
 
 export const CanvasTool = z.discriminatedUnion("kind", [

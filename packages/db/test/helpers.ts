@@ -39,12 +39,14 @@ export function openTestDb() {
   };
 }
 
-export function newNotebookInput(title = "DSA") {
+export function newNotebookInput(title: string) {
   return { title, coverColor: BLUE, pageSize: PAGE_SIZES.a4Portrait, defaultTemplate: LINED, folderId: null };
 }
 
 /** Unwraps a Result in tests; a failure fails the test with the error. */
-export function unwrap<T>(result: { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: object }): T {
+export function unwrap<T>(
+  result: { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: object },
+): T {
   if (!result.ok) throw new Error(`expected ok, got ${JSON.stringify(result.error)}`);
   return result.value;
 }

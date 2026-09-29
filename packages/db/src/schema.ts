@@ -1,13 +1,5 @@
 import { sql } from "drizzle-orm";
-import {
-  index,
-  integer,
-  primaryKey,
-  real,
-  sqliteTable,
-  text,
-  uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 // Local schema from the build plan (Phase 2). Timestamps are epoch milliseconds. File paths are
 // relative to Documents (drawings) or Caches (thumbnails) because the app container path can
@@ -40,9 +32,7 @@ export const folders = sqliteTable(
     role: text("role", { enum: ["inbox"] }),
     ...syncable,
   },
-  (table) => [
-    index("folders_parent_sort_idx").on(table.parentId, table.sortKey),
-  ],
+  (table) => [index("folders_parent_sort_idx").on(table.parentId, table.sortKey)],
 );
 
 export const notebooks = sqliteTable(
@@ -58,9 +48,7 @@ export const notebooks = sqliteTable(
     pageSize: text("page_size").notNull(),
     /** JSON `PageTemplate`. */
     defaultTemplate: text("default_template").notNull(),
-    isFavourite: integer("is_favourite", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    isFavourite: integer("is_favourite", { mode: "boolean" }).notNull().default(false),
     lastOpenedAt: integer("last_opened_at"),
     /** A system notebook the app manages ("daily"); null otherwise. Not unique, like folder roles. */
     role: text("role", { enum: ["daily"] }),
@@ -139,10 +127,7 @@ export const pageTags = sqliteTable(
       .notNull()
       .references(() => tags.id, { onDelete: "cascade" }),
   },
-  (table) => [
-    primaryKey({ columns: [table.pageId, table.tagId] }),
-    index("page_tags_tag_idx").on(table.tagId),
-  ],
+  (table) => [primaryKey({ columns: [table.pageId, table.tagId] }), index("page_tags_tag_idx").on(table.tagId)],
 );
 
 export const pageLinks = sqliteTable(

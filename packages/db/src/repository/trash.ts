@@ -1,4 +1,15 @@
-import { err, ok, type Folder, type FolderId, type Notebook, type NotebookId, type Page, type PageId, type RelativePath, type Result } from "@nibnote/shared";
+import {
+  err,
+  ok,
+  type Folder,
+  type FolderId,
+  type Notebook,
+  type NotebookId,
+  type Page,
+  type PageId,
+  type RelativePath,
+  type Result,
+} from "@nibnote/shared";
 import { and, desc, eq, inArray, isNotNull, isNull, lte } from "drizzle-orm";
 import { folders, notebooks, pages } from "../schema";
 import { enqueue } from "./outbox";
@@ -22,19 +33,29 @@ export function createTrashQueries<R>(db: Db<R>, deps: RepositoryDeps) {
   /** Hard-deletes pages and returns their files. Call inside a transaction. */
   const purgePages = (tx: Db<R>, ids: readonly string[], files: PurgedFiles) => {
     if (ids.length === 0) return;
-    const rows = tx.select().from(pages).where(inArray(pages.id, [...ids])).all();
+    const rows = tx
+      .select()
+      .from(pages)
+      .where(inArray(pages.id, [...ids]))
+      .all();
     for (const row of rows) {
       const page = toPage(row);
       files.drawings.push(page.drawingPath);
       if (page.thumbnailPath !== null) files.thumbnails.push(page.thumbnailPath);
       enqueue(tx, deps, "page", page.id, "delete");
     }
-    tx.delete(pages).where(inArray(pages.id, [...ids])).run();
+    tx.delete(pages)
+      .where(inArray(pages.id, [...ids]))
+      .run();
   };
 
   const purgeNotebooks = (tx: Db<R>, ids: readonly string[], files: PurgedFiles) => {
     if (ids.length === 0) return;
-    const pageIds = tx.select({ id: pages.id }).from(pages).where(inArray(pages.notebookId, [...ids])).all();
+    const pageIds = tx
+      .select({ id: pages.id })
+      .from(pages)
+      .where(inArray(pages.notebookId, [...ids]))
+      .all();
     purgePages(
       tx,
       pageIds.map((row) => row.id),
@@ -43,7 +64,9 @@ export function createTrashQueries<R>(db: Db<R>, deps: RepositoryDeps) {
     ids.forEach((id) => {
       enqueue(tx, deps, "notebook", id, "delete");
     });
-    tx.delete(notebooks).where(inArray(notebooks.id, [...ids])).run();
+    tx.delete(notebooks)
+      .where(inArray(notebooks.id, [...ids]))
+      .run();
   };
 
   const purgeFolders = (tx: Db<R>, ids: readonly string[], files: PurgedFiles) => {
@@ -58,7 +81,9 @@ export function createTrashQueries<R>(db: Db<R>, deps: RepositoryDeps) {
     ids.forEach((id) => {
       enqueue(tx, deps, "folder", id, "delete");
     });
-    tx.delete(folders).where(inArray(folders.id, [...ids])).run();
+    tx.delete(folders)
+      .where(inArray(folders.id, [...ids]))
+      .run();
   };
 
   const emptyFiles = (): PurgedFiles => ({ drawings: [], thumbnails: [] });

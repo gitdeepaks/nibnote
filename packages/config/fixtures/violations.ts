@@ -21,3 +21,17 @@ export const literal = ["pen", "pencil"] as const;
 // Metro ships Zod's English messages only (apps/ipad/metro.config.ts), so other locales are banned.
 import { z } from "zod";
 z.config(z.locales.fr());
+
+// No `undefined` and no optional members in our own types; absence is `null`.
+export const missing = undefined;
+export type WithOptional = { readonly name?: string };
+export function withOptionalParam(name?: string): string {
+  return name ?? "";
+}
+export function withDefault(name = "page"): string {
+  return name;
+}
+
+// Allowed: narrowing a runtime value, and React's own optional props.
+export const narrows = (values: readonly string[]): boolean => values[0] === undefined;
+export type ReactProps = { readonly children?: string; readonly style?: string; readonly ref?: string };

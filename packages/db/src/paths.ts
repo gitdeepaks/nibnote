@@ -3,10 +3,7 @@ import { RelativePath, type NotebookId, type PageId } from "@nibnote/shared";
 // Stored paths are relative: the app container path can change between installs and updates.
 // The app resolves them against Documents (drawings) or Caches (thumbnails) at runtime.
 
-export function drawingPathFor(
-  notebookId: NotebookId,
-  pageId: PageId,
-): RelativePath {
+export function drawingPathFor(notebookId: NotebookId, pageId: PageId): RelativePath {
   return RelativePath.parse(`notebooks/${notebookId}/${pageId}.drawing`);
 }
 
