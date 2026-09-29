@@ -15,7 +15,7 @@ const FOLDER_PREFIX = "folder:";
 export const RECENTS_LIMIT = 30;
 
 /** Parses the route param; anything unrecognised shows All rather than an error. */
-export function parseSection(param: string | string[] | undefined): LibrarySection {
+export function parseSection(param: string | string[] | null): LibrarySection {
   const value = typeof param === "string" ? param : "";
   const fixed = FixedSection.safeParse(value);
   if (fixed.success) return { kind: fixed.data };

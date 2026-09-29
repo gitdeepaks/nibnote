@@ -17,7 +17,9 @@ import {
 import { colors } from "../theme/colors";
 
 function SectionLabel({ children }: { readonly children: string }) {
-  return <Text style={{ fontSize: 13, fontWeight: "600", color: colors.secondaryLabel }}>{children.toUpperCase()}</Text>;
+  return (
+    <Text style={{ fontSize: 13, fontWeight: "600", color: colors.secondaryLabel }}>{children.toUpperCase()}</Text>
+  );
 }
 
 export default function NewNotebookScreen() {

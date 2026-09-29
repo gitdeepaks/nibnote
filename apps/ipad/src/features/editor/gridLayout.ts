@@ -35,10 +35,7 @@ export function gridLayout(width: number): GridLayout {
 }
 
 /** Top-left of cell `index` in content coordinates (before scrolling). */
-export function cellOrigin(
-  layout: GridLayout,
-  index: number,
-): { readonly x: number; readonly y: number } {
+export function cellOrigin(layout: GridLayout, index: number): { readonly x: number; readonly y: number } {
   return {
     x: layout.padding + (index % layout.columns) * layout.cellWidth,
     y: layout.padding + Math.floor(index / layout.columns) * layout.cellHeight,
@@ -46,16 +43,8 @@ export function cellOrigin(
 }
 
 /** The cell index under a point in content coordinates, clamped to the page count. */
-export function indexAt(
-  layout: GridLayout,
-  x: number,
-  y: number,
-  count: number,
-): number {
-  const column = Math.min(
-    Math.max(Math.floor((x - layout.padding) / layout.cellWidth), 0),
-    layout.columns - 1,
-  );
+export function indexAt(layout: GridLayout, x: number, y: number, count: number): number {
+  const column = Math.min(Math.max(Math.floor((x - layout.padding) / layout.cellWidth), 0), layout.columns - 1);
   const row = Math.max(Math.floor((y - layout.padding) / layout.cellHeight), 0);
   return Math.min(row * layout.columns + column, Math.max(count - 1, 0));
 }

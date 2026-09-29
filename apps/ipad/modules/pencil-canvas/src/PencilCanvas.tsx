@@ -65,7 +65,7 @@ export type PencilCanvasProps = {
   readonly onPageSwipe: (event: PageSwipeEvent) => void;
   readonly style?: StyleProp<ViewStyle>;
   /** Debug builds only: Apple's PKToolPicker, the Phase 1 fallback from the build plan. */
-  readonly debugSystemToolPicker?: boolean;
+  readonly debugSystemToolPicker: boolean;
   readonly ref?: Ref<PencilCanvasRef>;
 };
 
@@ -80,10 +80,7 @@ function forward<Schema extends z.ZodType>(
     if (result.success) {
       handler(result.data);
     } else {
-      console.error(
-        `PencilCanvas: invalid ${name} payload`,
-        result.error.issues,
-      );
+      console.error(`PencilCanvas: invalid ${name} payload`, result.error.issues);
     }
   };
 }
@@ -94,7 +91,7 @@ export function PencilCanvas({
   onPencilAction,
   onCanvasError,
   onPageSwipe,
-  debugSystemToolPicker = false,
+  debugSystemToolPicker,
   ...props
 }: PencilCanvasProps) {
   const nativeRef = useRef<NativeCanvasMethods>(null);
@@ -120,16 +117,8 @@ export function PencilCanvas({
       {...props}
       ref={nativeRef}
       debugSystemToolPicker={debugSystemToolPicker}
-      onDrawingChanged={forward(
-        "onDrawingChanged",
-        DrawingChangedEvent,
-        onDrawingChanged,
-      )}
-      onPencilAction={forward(
-        "onPencilAction",
-        PencilActionEvent,
-        onPencilAction,
-      )}
+      onDrawingChanged={forward("onDrawingChanged", DrawingChangedEvent, onDrawingChanged)}
+      onPencilAction={forward("onPencilAction", PencilActionEvent, onPencilAction)}
       onCanvasError={forward("onCanvasError", CanvasErrorEvent, onCanvasError)}
       onPageSwipe={forward("onPageSwipe", PageSwipeEvent, onPageSwipe)}
     />

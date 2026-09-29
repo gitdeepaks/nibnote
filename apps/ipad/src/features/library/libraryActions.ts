@@ -12,7 +12,7 @@ import type { LibrarySection } from "./sections";
 function promptForName(title: string, initial: string, confirm: string, onSubmit: (name: string) => void): void {
   Alert.prompt(
     title,
-    undefined,
+    "",
     [
       { text: "Cancel", style: "cancel" },
       {
@@ -29,17 +29,20 @@ function promptForName(title: string, initial: string, confirm: string, onSubmit
 
 export function renameNotebook(repository: Repository, notebook: Notebook): void {
   promptForName("Rename Notebook", notebook.title, "Save", (title) => {
-    reportFailure(repository.notebooks.update(notebook.id, { title }), "rename the notebook");
+    reportFailure(repository.notebooks.update(notebook.id, { kind: "rename", title }), "rename the notebook");
   });
 }
 
 export function toggleFavourite(repository: Repository, notebook: Notebook): void {
-  reportFailure(repository.notebooks.update(notebook.id, { isFavourite: !notebook.isFavourite }), "update favourites");
+  reportFailure(
+    repository.notebooks.update(notebook.id, { kind: "favourite", isFavourite: !notebook.isFavourite }),
+    "update favourites",
+  );
 }
 
 export function moveNotebook(repository: Repository, notebook: Notebook, folderId: FolderId | null): void {
   if (folderId === notebook.folderId) return;
-  reportFailure(repository.notebooks.update(notebook.id, { folderId }), "move the notebook");
+  reportFailure(repository.notebooks.update(notebook.id, { kind: "move", folderId }), "move the notebook");
 }
 
 export function trashNotebook(repository: Repository, notebook: Notebook): void {
@@ -48,11 +51,11 @@ export function trashNotebook(repository: Repository, notebook: Notebook): void 
 
 export function createFolder(repository: Repository, parentId: FolderId | null): void {
   promptForName(parentId === null ? "New Folder" : "New Subfolder", "", "Create", (name) => {
-    reportFailure(repository.folders.create({ name, parentId }), "create the folder");
+    reportFailure(repository.folders.create({ name, parentId, role: null }), "create the folder");
   });
 }
 
-export function showFolderActions(repository: Repository, folder: Folder, anchor?: number): void {
+export function showFolderActions(repository: Repository, folder: Folder, anchor: number | null): void {
   const canNest = folder.parentId === null;
   const options = ["Rename", ...(canNest ? ["New Subfolder"] : []), "Move to Trash", "Cancel"];
   const trashIndex = options.indexOf("Move to Trash");
@@ -63,7 +66,7 @@ export function showFolderActions(repository: Repository, folder: Folder, anchor
       options,
       cancelButtonIndex: options.length - 1,
       destructiveButtonIndex: trashIndex,
-      anchor,
+      ...(anchor === null ? {} : { anchor }),
     },
     (index) => {
       const choice = options[index];
@@ -134,10 +137,7 @@ export function deleteItemForever(repository: Repository, item: TrashItem): void
 }
 
 /** Section chooser for narrow windows, where the sidebar is hidden. */
-export function showSectionPicker(
-  folders: readonly Folder[],
-  onSelect: (section: LibrarySection) => void,
-): void {
+export function showSectionPicker(folders: readonly Folder[], onSelect: (section: LibrarySection) => void): void {
   const fixed: { readonly label: string; readonly section: LibrarySection }[] = [
     { label: "All Notebooks", section: { kind: "all" } },
     { label: "Favourites", section: { kind: "favourites" } },
@@ -149,8 +149,11 @@ export function showSectionPicker(
     { label: "Trash", section: { kind: "trash" as const } },
   ];
   const options = [...choices.map((choice) => choice.label), "Cancel"];
-  ActionSheetIOS.showActionSheetWithOptions({ title: "Library", options, cancelButtonIndex: choices.length }, (index) => {
-    const choice = choices[index];
-    if (choice !== undefined) onSelect(choice.section);
-  });
+  ActionSheetIOS.showActionSheetWithOptions(
+    { title: "Library", options, cancelButtonIndex: choices.length },
+    (index) => {
+      const choice = choices[index];
+      if (choice !== undefined) onSelect(choice.section);
+    },
+  );
 }

@@ -96,9 +96,7 @@ async function copyPageFiles(context: PageActionContext, copy: DuplicatedPage, s
 }
 
 type SaveOutcome =
-  | { readonly kind: "skipped" }
-  | { readonly kind: "saved"; readonly sha256: string }
-  | { readonly kind: "failed" };
+  { readonly kind: "skipped" } | { readonly kind: "saved"; readonly sha256: string } | { readonly kind: "failed" };
 
 async function saveCurrent(canvas: PencilCanvasRef | null): Promise<SaveOutcome> {
   if (canvas === null) return { kind: "skipped" };
@@ -137,7 +135,7 @@ export function movePagesToNotebook(context: PageActionContext, pageIds: readonl
 export function chooseNotebookForPages(
   context: PageActionContext,
   pageIds: readonly PageId[],
-  anchor?: number,
+  anchor: number | null,
 ): void {
   const notebooks = context.repository.notebooks.list({ kind: "all" }).filter((n) => n.id !== context.notebookId);
   if (notebooks.length === 0) {
@@ -151,7 +149,8 @@ export function chooseNotebookForPages(
       title: `Move ${String(count)} ${count === 1 ? "page" : "pages"} to`,
       options,
       cancelButtonIndex: notebooks.length,
-      anchor,
+      // The popover points at the pressed view when there is one.
+      ...(anchor === null ? {} : { anchor }),
     },
     (index) => {
       const target = notebooks[index];
@@ -181,7 +180,12 @@ const MOVES: readonly { readonly move: PageMove; readonly label: string }[] = [
 ];
 
 /** The page menu, as a popover anchored to the long-pressed thumbnail. */
-export function showPageActions(context: PageActionContext, page: Page, pageNumber: number, anchor?: number): void {
+export function showPageActions(
+  context: PageActionContext,
+  page: Page,
+  pageNumber: number,
+  anchor: number | null,
+): void {
   const choices: readonly { readonly label: string; readonly run: () => void }[] = [
     {
       label: "Add Page After",
@@ -215,7 +219,8 @@ export function showPageActions(context: PageActionContext, page: Page, pageNumb
       options,
       cancelButtonIndex: choices.length,
       destructiveButtonIndex: choices.length - 1,
-      anchor,
+      // The popover points at the pressed view when there is one.
+      ...(anchor === null ? {} : { anchor }),
     },
     (index) => {
       choices[index]?.run();

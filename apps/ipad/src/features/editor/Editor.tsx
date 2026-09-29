@@ -1,4 +1,12 @@
-import type { DrawingPolicy, Notebook, NotebookId, Page, PageId, PageSwipeEvent, PencilActionEvent } from "@nibnote/shared";
+import type {
+  DrawingPolicy,
+  Notebook,
+  NotebookId,
+  Page,
+  PageId,
+  PageSwipeEvent,
+  PencilActionEvent,
+} from "@nibnote/shared";
 import { router, Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Easing, Text, View } from "react-native";
@@ -12,7 +20,15 @@ import { colors } from "../../theme/colors";
 import { CanvasBanner } from "./CanvasBanner";
 import { formatLocalDate } from "./dates";
 import { canvasMessageFor, type CanvasMessage } from "./canvasMessages";
-import { addDevPages, DEV_PAGE_BATCH, DEV_STROKE_FILLS } from "./developerTools";
+import { env } from "../../lib/env";
+import {
+  addDevPages,
+  checkDrawingFiles,
+  clearThumbnailCache,
+  DEV_PAGE_BATCH,
+  DEV_STROKE_FILLS,
+} from "./developerTools";
+import { lastOpenMs, stopOpenTimer } from "./openTimer";
 import { addPageAfter, showPageActions, type PageActionContext } from "./pageActions";
 import { PageGrid } from "./PageGrid";
 import { PageStrip } from "./PageStrip";
@@ -51,7 +67,10 @@ export function Editor({
   const repository = useRepository();
   const session = useLiveRead(
     ["notebooks", "pages"],
-    (repo) => ({ notebook: repo.notebooks.getLive(notebookId) ?? null, pages: repo.pages.list(notebookId) }),
+    (repo) => ({
+      notebook: repo.notebooks.getLive(notebookId) ?? null,
+      pages: repo.pages.list(notebookId),
+    }),
     notebookId,
   );
   // The live read catches up a frame after a write, so a page that was just added isn't in
@@ -62,7 +81,8 @@ export function Editor({
     readonly fallbackId: PageId | null;
     readonly fallbackIndex: number;
   }>(() => ({
-    pageId: initialPageId ?? repository.pages.openingPage(notebookId)?.id ?? null,
+    // The requested page (Daily note, deep link) is used only if it is a live page of this notebook.
+    pageId: repository.pages.openingPage(notebookId, initialPageId)?.id ?? null,
     fallbackId: null,
     fallbackIndex: 0,
   }));
@@ -75,7 +95,14 @@ export function Editor({
 
   if (session.status === "loading") return <LoadingState />;
   if (session.status === "error") {
-    return <EmptyState icon="exclamationmark.triangle" title="Couldn't open the notebook" message={session.message} />;
+    return (
+      <EmptyState
+        icon="exclamationmark.triangle"
+        title="Couldn't open the notebook"
+        message={session.message}
+        action={null}
+      />
+    );
   }
   const { notebook, pages } = session.value;
   const indexOf = (pageId: PageId | null) => pages.findIndex((candidate) => candidate.id === pageId);
@@ -107,6 +134,13 @@ type PageEditorProps = {
   readonly onShowPage: (pageId: PageId) => void;
 };
 
+/** The diagnostics menu: development builds, or release builds made with EXPO_PUBLIC_DIAGNOSTICS=1. */
+const showsDiagnostics = __DEV__ || env.diagnostics;
+
+function formatOpenTime(ms: number | null): string {
+  return ms === null ? "open a notebook from the library" : `${String(ms)} ms`;
+}
+
 /** How far a page slides in when turned by a swipe, in points. */
 const PAGE_TURN_DISTANCE = 48;
 
@@ -125,11 +159,21 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
   const [previousTool, setPreviousTool] = useState<ToolKey>("pen");
   const [penColor, setPenColor] = useState(DEFAULT_PEN_COLOR);
   const [policy, setPolicy] = useState<DrawingPolicy>("pencilOnly");
-  const [history, setHistory] = useState({ pageId: page.id, canUndo: false, canRedo: false });
-  const [notice, setNotice] = useState<{ readonly pageId: PageId; readonly message: CanvasMessage } | null>(null);
+  const [history, setHistory] = useState({
+    pageId: page.id,
+    canUndo: false,
+    canRedo: false,
+  });
+  const [notice, setNotice] = useState<{
+    readonly pageId: PageId;
+    readonly message: CanvasMessage;
+  } | null>(null);
   const [stripOpen, setStripOpen] = useState(stripPreference.open);
   const [showingGrid, setShowingGrid] = useState(false);
-  const [turn] = useState(() => ({ offset: new Animated.Value(0), opacity: new Animated.Value(1) }));
+  const [turn] = useState(() => ({
+    offset: new Animated.Value(0),
+    opacity: new Animated.Value(1),
+  }));
 
   useEffect(() => {
     repository.pages.rememberOpenPage(notebook.id, page.id);
@@ -168,7 +212,11 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
     // A short slide in the swipe's direction, so the page change reads as turning a page.
     turn.offset.setValue(forward ? PAGE_TURN_DISTANCE : -PAGE_TURN_DISTANCE);
     turn.opacity.setValue(0.4);
-    const timing = { duration: 180, easing: Easing.out(Easing.poly(3)), useNativeDriver: true };
+    const timing = {
+      duration: 180,
+      easing: Easing.out(Easing.poly(3)),
+      useNativeDriver: true,
+    };
     Animated.parallel([
       Animated.timing(turn.offset, { ...timing, toValue: 0 }),
       Animated.timing(turn.opacity, { ...timing, toValue: 1 }),
@@ -247,19 +295,44 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
             run("Redo", (canvas) => canvas.redo());
           }}
         />
-        {__DEV__ && (
-          <Stack.Toolbar.Menu icon="hammer" accessibilityLabel="Developer tools">
-            {DEV_STROKE_FILLS.map((count) => (
-              <Stack.Toolbar.MenuAction
-                key={count}
-                icon="scribble"
-                onPress={() => {
-                  run("Fill strokes", (canvas) => canvas.debugFillStrokes(count));
-                }}
-              >
-                {`Fill ${String(count)} strokes`}
-              </Stack.Toolbar.MenuAction>
-            ))}
+        {showsDiagnostics && (
+          <Stack.Toolbar.Menu icon="hammer" accessibilityLabel="Diagnostics">
+            <Stack.Toolbar.MenuAction icon="stopwatch" disabled>
+              {`Last open: ${formatOpenTime(lastOpenMs())}`}
+            </Stack.Toolbar.MenuAction>
+            <Stack.Toolbar.MenuAction
+              icon="checkmark.shield"
+              onPress={() => {
+                const check = checkDrawingFiles(repository);
+                Alert.alert(
+                  check.missing === 0 ? "All drawings are on disk" : `${String(check.missing)} drawings are missing`,
+                  `${String(check.pages)} pages, ${String(check.drawn)} with drawings.`,
+                );
+              }}
+            >
+              Check Files
+            </Stack.Toolbar.MenuAction>
+            <Stack.Toolbar.MenuAction
+              icon="photo.badge.exclamationmark"
+              onPress={() => {
+                clearThumbnailCache();
+                Alert.alert("Thumbnails cleared", "Open the page strip or grid: thumbnails should come back.");
+              }}
+            >
+              Clear Thumbnails
+            </Stack.Toolbar.MenuAction>
+            {__DEV__ &&
+              DEV_STROKE_FILLS.map((count) => (
+                <Stack.Toolbar.MenuAction
+                  key={count}
+                  icon="scribble"
+                  onPress={() => {
+                    run("Fill strokes", (canvas) => canvas.debugFillStrokes(count));
+                  }}
+                >
+                  {`Fill ${String(count)} strokes`}
+                </Stack.Toolbar.MenuAction>
+              ))}
             <Stack.Toolbar.MenuAction
               icon="doc.on.doc"
               onPress={() => {
@@ -287,9 +360,16 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
           />
         )}
         <View style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
-          <Animated.View style={{ flex: 1, opacity: turn.opacity, transform: [{ translateX: turn.offset }] }}>
+          <Animated.View
+            style={{
+              flex: 1,
+              opacity: turn.opacity,
+              transform: [{ translateX: turn.offset }],
+            }}
+          >
             <PencilCanvas
               ref={canvasRef}
+              debugSystemToolPicker={false}
               style={{ flex: 1 }}
               pageId={page.id}
               drawingFileUri={drawingFileUri(page)}
@@ -298,7 +378,12 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
               tool={toolFor(tool, penColor)}
               drawingPolicy={policy}
               onDrawingChanged={(event) => {
-                setHistory({ pageId: event.pageId, canUndo: event.canUndo, canRedo: event.canRedo });
+                stopOpenTimer(notebook.id);
+                setHistory({
+                  pageId: event.pageId,
+                  canUndo: event.canUndo,
+                  canRedo: event.canRedo,
+                });
               }}
               onPencilAction={handlePencilAction}
               onCanvasError={(event) => {
@@ -339,8 +424,8 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
               }}
             >
               {page.dailyDate === null
-              ? `${String(pageNumber)} / ${String(pageCount)}`
-              : `${formatLocalDate(page.dailyDate)} · ${String(pageNumber)} / ${String(pageCount)}`}
+                ? `${String(pageNumber)} / ${String(pageCount)}`
+                : `${formatLocalDate(page.dailyDate)} · ${String(pageNumber)} / ${String(pageCount)}`}
             </Text>
             {message !== null && (
               <CanvasBanner

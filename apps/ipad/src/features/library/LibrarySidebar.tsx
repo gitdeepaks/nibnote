@@ -13,18 +13,18 @@ type SidebarRowProps = {
   readonly icon: SFSymbol;
   readonly label: string;
   readonly selected: boolean;
-  readonly indent?: boolean;
+  readonly indent: boolean;
   readonly onPress: () => void;
-  readonly onLongPress?: (event: GestureResponderEvent) => void;
+  readonly onLongPress: ((event: GestureResponderEvent) => void) | null;
 };
 
-function SidebarRow({ icon, label, selected, indent = false, onPress, onLongPress }: SidebarRowProps) {
+function SidebarRow({ icon, label, selected, indent, onPress, onLongPress }: SidebarRowProps) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
-      onLongPress={onLongPress}
+      {...(onLongPress === null ? {} : { onLongPress })}
       style={{
         flexDirection: "row",
         alignItems: "center",
@@ -79,10 +79,39 @@ export function LibrarySidebar({ section, folders, onSelect }: LibrarySidebarPro
       style={{ width: SIDEBAR_WIDTH, flexGrow: 0, flexShrink: 0, backgroundColor: colors.groupedBackground }}
       contentContainerStyle={{ padding: 12, gap: 2 }}
     >
-      <SidebarRow icon="books.vertical" label="All Notebooks" selected={section.kind === "all"} onPress={() => { onSelect({ kind: "all" }); }} />
-      <SidebarRow icon="star" label="Favourites" selected={section.kind === "favourites"} onPress={() => { onSelect({ kind: "favourites" }); }} />
-      <SidebarRow icon="clock" label="Recents" selected={section.kind === "recents"} onPress={() => { onSelect({ kind: "recents" }); }} />
-      <View style={{ flexDirection: "row", alignItems: "center", paddingTop: 18, paddingBottom: 4, paddingHorizontal: 12 }}>
+      <SidebarRow
+        icon="books.vertical"
+        label="All Notebooks"
+        selected={section.kind === "all"}
+        onPress={() => {
+          onSelect({ kind: "all" });
+        }}
+        indent={false}
+        onLongPress={null}
+      />
+      <SidebarRow
+        icon="star"
+        label="Favourites"
+        selected={section.kind === "favourites"}
+        onPress={() => {
+          onSelect({ kind: "favourites" });
+        }}
+        indent={false}
+        onLongPress={null}
+      />
+      <SidebarRow
+        icon="clock"
+        label="Recents"
+        selected={section.kind === "recents"}
+        onPress={() => {
+          onSelect({ kind: "recents" });
+        }}
+        indent={false}
+        onLongPress={null}
+      />
+      <View
+        style={{ flexDirection: "row", alignItems: "center", paddingTop: 18, paddingBottom: 4, paddingHorizontal: 12 }}
+      >
         <Text style={{ flex: 1, fontSize: 13, fontWeight: "600", color: colors.secondaryLabel }}>FOLDERS</Text>
         <Pressable
           accessibilityRole="button"
@@ -105,7 +134,16 @@ export function LibrarySidebar({ section, folders, onSelect }: LibrarySidebarPro
         ...folders.filter((child) => child.parentId === folder.id).map((child) => folderRow(child, true)),
       ])}
       <View style={{ height: 18 }} />
-      <SidebarRow icon="trash" label="Trash" selected={section.kind === "trash"} onPress={() => { onSelect({ kind: "trash" }); }} />
+      <SidebarRow
+        icon="trash"
+        label="Trash"
+        selected={section.kind === "trash"}
+        onPress={() => {
+          onSelect({ kind: "trash" });
+        }}
+        indent={false}
+        onLongPress={null}
+      />
     </ScrollView>
   );
 }

@@ -71,6 +71,24 @@ final class DrawingStoreTests: XCTestCase {
         XCTAssertEqual(image.size.width * image.scale, 480, accuracy: 1)
     }
 
+    func testRegeneratesAThumbnailFromTheDrawingFileAlone() async throws {
+        _ = try await DrawingStore(sandboxRoot: root).save(
+            SyntheticStrokes.drawing(count: 5, pageSize: page), to: drawingURL)
+        let before = try Data(contentsOf: drawingURL)
+        let request = thumbnail()
+        let wrote = try await ThumbnailWriter(sandboxRoot: root).regenerate(from: drawingURL, request: request)
+        XCTAssertTrue(wrote)
+        XCTAssertNotNil(UIImage(contentsOfFile: request.url.path))
+        XCTAssertEqual(try Data(contentsOf: drawingURL), before, "the drawing must not be rewritten")
+    }
+
+    func testRegeneratingWithoutADrawingFileWritesNothing() async throws {
+        let request = thumbnail()
+        let wrote = try await ThumbnailWriter(sandboxRoot: root).regenerate(from: drawingURL, request: request)
+        XCTAssertFalse(wrote)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: request.url.path))
+    }
+
     func testThumbnailWriterRefusesPathsOutsideTheSandbox() async {
         let outside = ThumbnailRequest(
             url: URL(fileURLWithPath: "/tmp/elsewhere/t.png"), pageSize: page, template: .blank)

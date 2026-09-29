@@ -5,6 +5,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRepository } from "../../db/DatabaseProvider";
 import { thumbnailFile } from "../../db/files";
 import { colors } from "../../theme/colors";
+import { startOpenTimer } from "../editor/openTimer";
 import { moveNotebook, renameNotebook, toggleFavourite, trashNotebook } from "./libraryActions";
 import { relativeTime } from "./relativeTime";
 
@@ -36,6 +37,9 @@ export function NotebookCard({ notebook, pageCount, now, folders }: NotebookCard
           accessibilityRole="button"
           accessibilityLabel={`${notebook.title}, ${pages}`}
           accessibilityHint="Opens the notebook. Long press for options."
+          onPressIn={() => {
+            startOpenTimer(notebook.id);
+          }}
           style={{ gap: 8, padding: 8 }}
         >
           <View style={{ height: COVER_HEIGHT, alignItems: "center", justifyContent: "flex-end" }}>
@@ -131,8 +135,8 @@ export function NotebookCard({ notebook, pageCount, now, folders }: NotebookCard
  */
 function NotebookPreview({ notebook }: { readonly notebook: Notebook }) {
   const repository = useRepository();
-  const page = repository.pages.openingPage(notebook.id);
-  const thumbnail = page === undefined ? null : thumbnailFile(page.id);
+  const page = repository.pages.openingPage(notebook.id, null);
+  const thumbnail = page === null ? null : thumbnailFile(page.id);
   return (
     <View style={{ flex: 1, backgroundColor: PAPER }}>
       {thumbnail?.exists === true && (

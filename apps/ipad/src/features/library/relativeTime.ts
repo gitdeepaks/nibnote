@@ -10,5 +10,5 @@ export function relativeTime(then: number, now: number): string {
   if (elapsed < DAY) return `${String(Math.floor(elapsed / HOUR))} h ago`;
   if (elapsed < 2 * DAY) return "yesterday";
   if (elapsed < 7 * DAY) return `${String(Math.floor(elapsed / DAY))} days ago`;
-  return new Date(then).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  return new Date(then).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
 }

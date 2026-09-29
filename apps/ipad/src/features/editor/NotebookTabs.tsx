@@ -12,11 +12,12 @@ import { colors } from "../../theme/colors";
  */
 export function NotebookTabs({ currentId }: { readonly currentId: NotebookId }) {
   const repository = useRepository();
-  const tabs = useLiveRead(["settings", "notebooks"], (repo) => repo.tabs.list());
+  const tabs = useLiveRead(["settings", "notebooks"], (repo) => repo.tabs.list(), "");
   if (tabs.status !== "ready" || tabs.value.length < 2) return null;
 
   const show = (id: NotebookId) => {
-    router.setParams({ notebookId: id, page: undefined });
+    // An empty page param means "open where the notebook was left" (the editor validates it).
+    router.setParams({ notebookId: id, page: "" });
   };
 
   const close = (tab: Notebook) => {
@@ -27,11 +28,20 @@ export function NotebookTabs({ currentId }: { readonly currentId: NotebookId }) 
   };
 
   return (
-    <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.separator }}>
+    <View
+      style={{
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: colors.separator,
+      }}
+    >
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 6, gap: 6 }}
+        contentContainerStyle={{
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          gap: 6,
+        }}
       >
         {tabs.value.map((tab) => {
           const current = tab.id === currentId;
@@ -54,11 +64,20 @@ export function NotebookTabs({ currentId }: { readonly currentId: NotebookId }) 
                 onPress={() => {
                   show(tab.id);
                 }}
-                style={{ paddingLeft: 12, paddingRight: 4, paddingVertical: 7, maxWidth: 200 }}
+                style={{
+                  paddingLeft: 12,
+                  paddingRight: 4,
+                  paddingVertical: 7,
+                  maxWidth: 200,
+                }}
               >
                 <Text
                   numberOfLines={1}
-                  style={{ fontSize: 14, fontWeight: current ? "600" : "400", color: current ? colors.label : colors.secondaryLabel }}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: current ? "600" : "400",
+                    color: current ? colors.label : colors.secondaryLabel,
+                  }}
                 >
                   {tab.title}
                 </Text>
