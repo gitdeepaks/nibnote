@@ -120,7 +120,9 @@ The stack is Expo SDK 58 (React Native 0.88) with a custom Swift PencilKit modul
 
 ## Type-safety contract
 
-Our code never writes `any` or `unknown`, never uses `as` casts, `!` non-null assertions or `@ts-ignore`, and CI rejects any violation. Two things are allowed: `as const` (a literal, not a cast) and `satisfies` (a check, not a cast).
+Our code never writes `any`, `unknown` or `undefined`, never uses `as` casts, `!` non-null assertions or `@ts-ignore`, and CI rejects any violation. Two things are allowed: `as const` (a literal, not a cast) and `satisfies` (a check, not a cast).
+
+**No `undefined`, no optional members (added Sep 29, 2026).** A missing value is always `null`, written out: `T | null`, never `T | undefined`. Our own types don't declare optional properties (`name?:`), optional parameters or default-valued parameters; a field is required and nullable instead. Partial updates are discriminated unions (for example `NotebookPatch`), not objects of optional fields. The only allowed use of `undefined` is narrowing a value the runtime produced (an array index, `find`, `Map.get`, a library's optional prop) with `=== undefined`, converting it to `null` or a real value at once. Exceptions: React's own `children`, `style` and `ref` props, library types, and ambient `.d.ts` declarations of external values (environment variables), which are parsed with Zod where read. Library options are passed by spreading: `...(anchor === null ? {} : { anchor })`.
 
 **The honest boundary rule.** TypeScript itself produces untyped values in a few places: `JSON.parse`, `response.json()`, `catch (error)`, native events, route params, env vars. We never store or pass those values around. They go straight into a Zod schema (or an `instanceof` check) on the same line, and only the parsed, typed result moves on.
 
@@ -151,6 +153,7 @@ Our code never writes `any` or `unknown`, never uses `as` casts, `!` non-null as
 | -------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | `@typescript-eslint/no-explicit-any`                                                         | Writing `any`                                           |
 | `no-restricted-syntax` on `TSAnyKeyword`, `TSUnknownKeyword`                                 | Writing `any` or `unknown` anywhere, including generics |
+| `no-restricted-syntax` on `TSUndefinedKeyword`, the `undefined` value outside `===`/`!==`, optional properties and parameters, default parameters | Hidden `undefined`: absence is always an explicit `null` |
 | `@typescript-eslint/consistent-type-assertions` with `assertionStyle: "never"`               | `as X` and `<X>value` casts (`as const` still allowed)  |
 | `@typescript-eslint/no-non-null-assertion`                                                   | `value!`                                                |
 | `@typescript-eslint/ban-ts-comment` (all directives banned)                                  | `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`         |
@@ -615,12 +618,20 @@ Phase 2 is built in five milestones, each its own PR: M1 data layer, M2 library,
 - **Tabs.** Open notebooks show as tabs under the editor header once two or more are open. They are kept in settings (device-local, no outbox) and survive restarts, up to 8; the tab opened longest ago closes first. Switching tabs changes the route's params in place, so tabs never stack screens and Back goes to the library. Closing the current tab shows its neighbour, and trashed notebooks drop out.
 - **The editor route takes an optional `page` param** (`/notebook/<id>?page=<pageId>`), which the Daily note uses. Without it, a notebook opens where it was left.
 - **Phase 1 bug fixed: blank A4 pages showed as dark.** When the first page matched the canvas defaults (A4, blank), `PageSurface.configure` saw no change and the paper layer stayed 0x0. The page then showed the dark canvas background, and black ink vanished in dark mode. The paper is now sized when the surface is created, with an XCTest; the owner checked the fix in light and dark mode. Bundle 3.92 MB after M4b.
+- **M5 (Sep 29, 2026). Measured on a Release build.** Dev builds run slower JavaScript, so the exit criteria were measured on a Release build made with `EXPO_PUBLIC_DIAGNOSTICS=1`. That flag, parsed in `src/lib/env.ts`, shows the editor's diagnostics menu (hammer): the last notebook open time, "Check Files" (every page with a recorded save still has its drawing file; only existence is checked, so no drawing bytes reach JS) and "Clear Thumbnails". Normal release builds never show it. Frame rate and hitches came from Instruments' Animation Hitches template, recorded with `xctrace --all-processes` while the owner scrolled. Attaching to the app failed while `expo run:ios` held its log stream.
+- **Opening a large notebook.** The 601-page notebook "12" (596 pages at the time, double the 300-page target) opened in 160 ms and 183 ms, from tapping its card to the page on the canvas. A one-page notebook took 122 ms.
+- **The page strip hitched: fixed.** The first recording showed 23 hitches in 20 s (238 ms, about 12 ms of hitches per second; Apple treats under 5 as good). Instruments reported 94–98 offscreen render passes per frame, caused by rounding thumbnail corners with `overflow: hidden`, a mask per visible thumbnail. Thumbnails now have square corners. Afterwards: 113–120 fps, 3 hitches in 20 s (25 ms, about 1.3 ms/s), 6 offscreen passes.
+- **The page grid hitched: fixed (this was the M4a watch item).** The grid showed 38 hitches in 25 s (384 ms, about 15 ms/s) and 70–100 offscreen passes. A temporary A/B switch (removed afterwards) showed the cells were fine without images (1 hitch). Cause: `expo-image` sets trilinear filtering, so each 480 px thumbnail shown at about 290 px made the GPU build mipmaps. The fix is `enforceEarlyResizing`, which decodes each thumbnail at its displayed size. The cache key includes the box width, so the strip and the grid each cache their own size. Afterwards: 105–119 fps, 2 hitches in 20 s (17 ms, about 0.8 ms/s), 7–15 offscreen passes; thumbnails stay sharp. Moving pages in the 601-page notebook now redraws the grid at once.
+- **Thumbnails are rebuilt after iOS purges Caches.** The module's new `renderThumbnail(pageId, drawingUri, pageSize, template)` renders a page's thumbnail from its drawing file without a canvas. It only reads the drawing and never rewrites it (XCTests). Pages whose drawing exists but whose thumbnail is missing are queued one at a time as they come on screen.
+- **Restart survival.** Reordering, trashing and restoring pages all survived a kill and relaunch.
+- **Prettier.** The repo now has `.prettierrc.json` (`printWidth: 120`, matching the existing style), `bun run format` / `format:check`, a pre-commit check and a CI step, so editors that format on save no longer rewrite files. The whole repo was formatted once. The pre-commit hooks also gained the `packages/db` job, which had been missing.
+- **No `undefined` in our TypeScript.** Asked by the owner and added to the Type-safety contract, the ESLint contract and CLAUDE.md. `NotebookPatch` became a discriminated union; `get`, `getLive` and `openingPage` return `null`; `pages.add` takes `afterId: PageId | null`. `openingPage(notebook, requested)` now checks that a requested page belongs to that notebook and is live.
 
 **Exit criteria**
 
 - [ ] Airplane mode for a full day of real note-taking: zero data loss
-- [ ] 300-page notebook opens in under 1 s and scrolls the page strip at 120 fps on ProMotion
-- [ ] Delete, restore from trash, reorder pages: all survive app restart
+- [x] 300-page notebook opens in under 1 s and scrolls the page strip at 120 fps on ProMotion (iPad Pro 11" 3rd gen, iPadOS 27, Release build, Sep 29, 2026: **596 pages open in 160–183 ms**; strip **113–120 fps, 1.3 ms/s hitches** after the offscreen-render fix; grid 105–119 fps, 0.8 ms/s)
+- [x] Delete, restore from trash, reorder pages: all survive app restart (checked on the iPad, Sep 29, 2026)
 
 **Claude Code prompt**
 
@@ -1133,7 +1144,7 @@ iPadOS 26 deprecated `UIRequiresFullScreen`; apps must handle every orientation 
 - [ ] `[P2]` **Migration for existing absolute paths.** If any build stored absolute paths, a Drizzle migration strips the container prefix; verified on a device that already has notes.
 - [ ] `[P2]` **Per-page size.** `pages.widthPt` and `pages.heightPt` exist (PDF pages differ); paper pages copy the notebook size. Server schema gets the same fields in its next migration.
 - [ ] `[P2]` Install a new build over an old one: every notebook, drawing and thumbnail still opens.
-- [ ] `[P2]` Delete the Caches folder: thumbnails regenerate, nothing else breaks.
+- [x] `[P2]` Delete the Caches folder: thumbnails regenerate, nothing else breaks. Done in Phase 2 (M5): `renderThumbnail`, checked with the diagnostics "Clear Thumbnails".
 - [ ] `[P2]` Reorder one page 200 times: `sortKey` length stays bounded; keys rebalance when they grow past a limit.
 - [ ] `[P2]` Forced migration failure restores the backup DB and shows the recovery screen.
 - [ ] `[P2]` Trash purge after 30 days runs on launch and is idempotent.
