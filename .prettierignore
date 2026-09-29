@@ -1,0 +1,13 @@
+# Generated, vendored or native: never reformatted.
+node_modules/
+**/ios/
+**/android/
+**/.expo/
+**/dist/
+**/expo-env.d.ts
+bun.lock
+packages/db/drizzle/
+packages/db/src/migrations.generated.ts
+.claude/
+# Prose and tables are kept as written.
+**/*.md
