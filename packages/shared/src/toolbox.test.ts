@@ -3,15 +3,23 @@ import {
   afterPencilAction,
   CanvasTool,
   canvasToolFor,
+  activePreset,
+  addRecentColor,
   chooseColor,
-  colorName,
   colorTarget,
   DEFAULT_TOOLBOX,
+  effectiveWidth,
   HexColor,
+  MAX_RECENT_COLORS,
+  rememberColor,
   PencilPreferredAction,
   selectSlot,
+  selectWidthPreset,
+  setPenInk,
+  setPinnedColor,
   setSlotColor,
   setSlotWidth,
+  setWidthPreset,
   StoredToolbox,
   toggleDrawingPolicy,
   ToolSlot,
@@ -231,29 +239,100 @@ describe("StoredToolbox", () => {
   });
 });
 
-describe("colorName", () => {
-  test("names the default colours", () => {
-    const names = [
-      ["#1C1C1E", "Black"],
-      ["#3A3A3C", "Gray"],
-      ["#0A60FF", "Blue"],
-      ["#E5383B", "Red"],
-      ["#FFD60A", "Yellow"],
-      ["#34C759", "Green"],
-      ["#FF6FB5", "Pink"],
-    ] as const;
-    for (const [color, name] of names) expect(colorName(HexColor.parse(color))).toBe(name);
+describe("width presets", () => {
+  test("the default width is the middle preset", () => {
+    expect(activePreset(DEFAULT_TOOLBOX, "pen")).toBe(1);
+    expect(activePreset(DEFAULT_TOOLBOX, "highlighter")).toBe(1);
   });
 
-  test("names white, orange, brown, teal and purple, ignoring alpha", () => {
-    const names = [
-      ["#FFFFFF", "White"],
-      ["#FF9500", "Orange"],
-      ["#7B4A12", "Brown"],
-      ["#30B0C7", "Teal"],
-      ["#AF52DE", "Purple"],
-      ["#0A60FF80", "Blue"],
-    ] as const;
-    for (const [color, name] of names) expect(colorName(HexColor.parse(color))).toBe(name);
+  test("selecting a preset draws with it", () => {
+    const toolbox = selectWidthPreset(DEFAULT_TOOLBOX, "pen", 2);
+    expect(activePreset(toolbox, "pen")).toBe(2);
+    expect(canvasToolFor(toolbox)).toMatchObject({ width: 5 });
+  });
+
+  test("the slider changes the selected preset, clamped to the ink and kept selected", () => {
+    const toolbox = setWidthPreset(DEFAULT_TOOLBOX, "pen", 0, 1.234);
+    expect(toolbox.slots.pen.widthPresets).toEqual([1.2, 3, 5]);
+    expect(activePreset(toolbox, "pen")).toBe(0);
+    expect(setWidthPreset(DEFAULT_TOOLBOX, "pencil", 0, 1).slots.pencil.widthPresets[0]).toBe(2.4);
+    expect(setWidthPreset(DEFAULT_TOOLBOX, "pen", 0, Number.NaN)).toBe(DEFAULT_TOOLBOX);
+  });
+
+  test("a width set elsewhere shows no preset as selected", () => {
+    expect(activePreset(setSlotWidth(DEFAULT_TOOLBOX, "pen", 7), "pen")).toBeNull();
+  });
+
+  test("an M1 pencil preset below PencilKit's minimum still draws, at the minimum", () => {
+    const fromM1 = stored({
+      ...DEFAULT_TOOLBOX,
+      active: "pencil",
+      slots: {
+        ...DEFAULT_TOOLBOX.slots,
+        pencil: { ...DEFAULT_TOOLBOX.slots.pencil, width: 2, widthPresets: [2, 4, 8] },
+      },
+    });
+    expect(canvasToolFor(fromM1)).toMatchObject({ width: 2.4 });
+    expect(activePreset(fromM1, "pencil")).toBe(0);
+  });
+});
+
+describe("pen ink", () => {
+  test("switching to monoline clamps the width it draws with, and keeps the presets", () => {
+    const monoline = setPenInk(selectWidthPreset(DEFAULT_TOOLBOX, "pen", 2), "monoline");
+    expect(canvasToolFor(monoline)).toMatchObject({ ink: "monoline", width: 4 });
+    expect(effectiveWidth(monoline, "pen")).toBe(4);
+    expect(monoline.slots.pen.widthPresets).toEqual([1.5, 3, 5]);
+    expect(canvasToolFor(setPenInk(monoline, "pen"))).toMatchObject({ ink: "pen", width: 5 });
+  });
+
+  test("setting the same ink changes nothing", () => {
+    expect(setPenInk(DEFAULT_TOOLBOX, "pen")).toBe(DEFAULT_TOOLBOX);
+  });
+});
+
+describe("pinned and recent colours", () => {
+  test("replacing a pin draws with it and selects the slot", () => {
+    const purple = HexColor.parse("#7B3FE4");
+    const toolbox = setPinnedColor(selectSlot(DEFAULT_TOOLBOX, "eraser"), "pencil", 2, purple);
+    expect(toolbox.active).toBe("pencil");
+    expect(toolbox.slots.pencil.pinnedColors[2]).toBe(purple);
+    expect(toolbox.slots.pencil.pinnedColors[0]).toBe(DEFAULT_TOOLBOX.slots.pencil.pinnedColors[0]);
+    expect(canvasToolFor(toolbox)).toMatchObject({ colorHex: purple });
+    expect(toolbox.recentColors).toEqual([]);
+  });
+
+  test("setting the pin it already has only selects the slot", () => {
+    const pen = DEFAULT_TOOLBOX.slots.pen.pinnedColors[0];
+    expect(setPinnedColor(DEFAULT_TOOLBOX, "pen", 0, pen)).toBe(DEFAULT_TOOLBOX);
+  });
+
+  test("a picked colour goes to the front of the recent colours, once", () => {
+    const once = addRecentColor(DEFAULT_TOOLBOX, green);
+    expect(once.recentColors).toEqual([green]);
+    expect(addRecentColor(once, green)).toBe(once);
+  });
+
+  test("tapping a pinned colour doesn't fill the recent colours", () => {
+    expect(chooseColor(DEFAULT_TOOLBOX, "pen", red).recentColors).toEqual([]);
+  });
+
+  test("recent colours: newest first, no duplicates (case-insensitive), at most eight", () => {
+    const colors = Array.from({ length: 10 }, (_, index) => HexColor.parse(`#00000${String(index)}`));
+    const recent = colors.reduce<readonly HexColor[]>((list, color) => rememberColor(list, color), []);
+    expect(recent).toHaveLength(MAX_RECENT_COLORS);
+    expect(recent[0]).toBe(colors[9]);
+    const again = rememberColor(recent, HexColor.parse("#000005"));
+    expect(again[0]).toBe(HexColor.parse("#000005"));
+    expect(again).toHaveLength(MAX_RECENT_COLORS);
+    expect(rememberColor([HexColor.parse("#1a73e8")], HexColor.parse("#1A73E8"))).toEqual([HexColor.parse("#1A73E8")]);
+  });
+
+  test("stored recent colours survive, and a corrupt list resets alone", () => {
+    const toolbox = addRecentColor(setPinnedColor(DEFAULT_TOOLBOX, "pen", 1, green), green);
+    expect(stored(toolbox).recentColors).toEqual([green]);
+    const corrupt = stored({ ...toolbox, recentColors: ["nope"] });
+    expect(corrupt.recentColors).toEqual([]);
+    expect(corrupt.slots.pen.pinnedColors[1]).toBe(green);
   });
 });
