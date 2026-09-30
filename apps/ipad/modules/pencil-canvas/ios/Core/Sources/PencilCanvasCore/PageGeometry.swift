@@ -1,4 +1,5 @@
 import CoreGraphics
+import PencilKit
 import UIKit
 
 /// Zoom limits and centring for a fixed-size page inside a scrolling viewport.
@@ -24,6 +25,12 @@ enum PageGeometry {
     static func allowsPageSwipe(page: CGSize, zoom: CGFloat, viewport: CGSize) -> Bool {
         guard page.width > 0, viewport.width > 0 else { return false }
         return page.width * zoom <= viewport.width + 0.5
+    }
+
+    /// How many fingers turn the page. With "Apple Pencil only" a finger never draws, so one finger
+    /// swipes. When a finger draws too, one finger is writing, so the swipe takes two.
+    static func pageSwipeTouches(drawingPolicy: PKCanvasViewDrawingPolicy) -> Int {
+        drawingPolicy == .anyInput ? 2 : 1
     }
 
     /// Insets that keep the page centred when it is smaller than the viewport.

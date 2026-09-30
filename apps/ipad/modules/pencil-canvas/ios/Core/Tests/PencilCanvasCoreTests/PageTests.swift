@@ -38,6 +38,11 @@ final class PageGeometryTests: XCTestCase {
         XCTAssertFalse(PageGeometry.allowsPageSwipe(page: a4Page, zoom: fit, viewport: .zero))
     }
 
+    func testOneFingerSwipesWithPencilOnlyAndTwoWhenFingersDraw() {
+        XCTAssertEqual(PageGeometry.pageSwipeTouches(drawingPolicy: .pencilOnly), 1)
+        XCTAssertEqual(PageGeometry.pageSwipeTouches(drawingPolicy: .anyInput), 2)
+    }
+
     func testDegenerateSizesFallBackToOne() {
         XCTAssertEqual(PageGeometry.minimumZoom(page: .zero, viewport: portraitIPad), 1)
         XCTAssertEqual(PageGeometry.initialZoom(page: a4Page, viewport: .zero), 1)

@@ -5,14 +5,15 @@ import UIKit
 /// `gestureRecognizerShouldBegin(_:)`, so the canvas view can't be the swipes' delegate itself.
 @MainActor
 final class PageSwipeGate: NSObject, UIGestureRecognizerDelegate {
-    private let allows: @MainActor () -> Bool
+    private let allows: @MainActor (_ touches: Int) -> Bool
 
-    init(allows: @escaping @MainActor () -> Bool) {
+    init(allows: @escaping @MainActor (_ touches: Int) -> Bool) {
         self.allows = allows
     }
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        allows()
+        guard let swipe = gestureRecognizer as? UISwipeGestureRecognizer else { return false }
+        return allows(swipe.numberOfTouchesRequired)
     }
 
     /// The canvas's own scrolling keeps working alongside the swipe.
@@ -24,22 +25,26 @@ final class PageSwipeGate: NSObject, UIGestureRecognizerDelegate {
     }
 }
 
-/// One-finger swipes turn the page. They never start while zoomed in (the swipe must pan
-/// instead), while fingers draw ("any input"), or for the Pencil, which only ever writes.
+/// Finger swipes turn the page: one finger with "Apple Pencil only", two when a finger draws
+/// (`PageGeometry.pageSwipeTouches`). They never start while zoomed in (the swipe must pan
+/// instead), or for the Pencil, which only ever writes.
 extension PencilCanvasView {
     func installPageSwipes() {
-        for direction in [UISwipeGestureRecognizer.Direction.left, .right] {
-            let swipe = UISwipeGestureRecognizer(target: self, action: #selector(handlePageSwipe(_:)))
-            swipe.direction = direction
-            swipe.numberOfTouchesRequired = 1
-            swipe.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
-            swipe.delegate = pageSwipeGate
-            canvasView.addGestureRecognizer(swipe)
+        for touches in [1, 2] {
+            for direction in [UISwipeGestureRecognizer.Direction.left, .right] {
+                let swipe = UISwipeGestureRecognizer(target: self, action: #selector(handlePageSwipe(_:)))
+                swipe.direction = direction
+                swipe.numberOfTouchesRequired = touches
+                swipe.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+                swipe.delegate = pageSwipeGate
+                canvasView.addGestureRecognizer(swipe)
+            }
         }
     }
 
-    var allowsPageSwipe: Bool {
-        page != nil && drawingPolicy == .pencilOnly && surface.allowsPageSwipe
+    func allowsPageSwipe(touches: Int) -> Bool {
+        page != nil && touches == PageGeometry.pageSwipeTouches(drawingPolicy: drawingPolicy)
+            && surface.allowsPageSwipe
     }
 
     @objc private func handlePageSwipe(_ swipe: UISwipeGestureRecognizer) {
