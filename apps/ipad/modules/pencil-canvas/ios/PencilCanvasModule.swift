@@ -64,6 +64,13 @@ public final class PencilCanvasModule: Module {
                 MainActor.assumeIsolated { view.debugFillStrokes(count: count) }
             }.runOnQueue(.main)
         }
+
+        // The toolbar's ink preview: one sample stroke in the real PencilKit ink.
+        View(StrokePreviewView.self) {
+            Prop("tool") { (view: StrokePreviewView, value: ToolRecord) in
+                view.setTool(value)
+            }
+        }
     }
 
     /// Resolves false when there is nothing to render (no drawing file, or an invalid page). The app

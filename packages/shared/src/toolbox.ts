@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { DrawingPolicy, HexColor, StrokeWidth, type CanvasTool, type PencilPreferredAction } from "./canvas";
+import {
+  DrawingPolicy,
+  HexColor,
+  StrokeWidth,
+  type CanvasTool,
+  type InkType,
+  type PencilPreferredAction,
+} from "./canvas";
+import { clampWidth, sameColor, widthRange, type WidthRange } from "./ink";
 
 // The editor's tools: five slots, each remembering its own settings, persisted on the device.
 // Reading a stored toolbox never fails: a bad slot falls back to its default on its own, and a
@@ -58,7 +66,14 @@ export type Toolbox = {
   readonly slots: ToolSlots;
   /** Whether a finger draws too, or only Apple Pencil (the finger then scrolls and zooms). */
   readonly drawingPolicy: DrawingPolicy;
+  /** Colours picked in the colour popover, newest first, at most `MAX_RECENT_COLORS`. */
+  readonly recentColors: readonly HexColor[];
 };
+
+export const MAX_RECENT_COLORS = 8;
+
+/** One of a slot's three pinned colours or width presets. */
+export type TrioIndex = 0 | 1 | 2;
 
 const hex = (value: string) => HexColor.parse(value);
 
@@ -74,7 +89,8 @@ const DEFAULT_SLOTS: ToolSlots = {
     color: hex("#3A3A3C"),
     width: 4,
     pinnedColors: [hex("#3A3A3C"), hex("#0A60FF"), hex("#E5383B")],
-    widthPresets: [2, 4, 8],
+    // PencilKit's pencil is at least 2.4 pt wide.
+    widthPresets: [2.4, 4, 8],
   },
   highlighter: {
     color: hex("#FFD60A"),
@@ -91,6 +107,7 @@ export const DEFAULT_TOOLBOX: Toolbox = {
   previous: "pen",
   slots: DEFAULT_SLOTS,
   drawingPolicy: "pencilOnly",
+  recentColors: [],
 };
 
 /** The stored toolbox. Parsing never fails; see the note at the top of this file. */
@@ -109,6 +126,7 @@ export const StoredToolbox = z
       .catch(DEFAULT_SLOTS),
     // Added after M1 shipped to the device: a toolbox stored without it keeps everything else.
     drawingPolicy: DrawingPolicy.catch(DEFAULT_TOOLBOX.drawingPolicy),
+    recentColors: z.array(HexColor).max(MAX_RECENT_COLORS).readonly().catch(DEFAULT_TOOLBOX.recentColors),
   })
   .readonly()
   .catch(DEFAULT_TOOLBOX);
@@ -189,11 +207,19 @@ export function canvasToolFor(toolbox: Toolbox): CanvasTool {
   const { slots } = toolbox;
   switch (toolbox.active) {
     case "pen":
-      return { kind: "ink", ink: slots.pen.ink, colorHex: slots.pen.color, width: slots.pen.width };
     case "pencil":
-      return { kind: "ink", ink: "pencil", colorHex: slots.pencil.color, width: slots.pencil.width };
+      return {
+        kind: "ink",
+        ink: inkOf(toolbox, toolbox.active),
+        colorHex: slots[toolbox.active].color,
+        width: effectiveWidth(toolbox, toolbox.active),
+      };
     case "highlighter":
-      return { kind: "highlighter", colorHex: slots.highlighter.color, width: slots.highlighter.width };
+      return {
+        kind: "highlighter",
+        colorHex: slots.highlighter.color,
+        width: effectiveWidth(toolbox, "highlighter"),
+      };
     case "eraser":
       return { kind: "eraser", mode: slots.eraser.mode, width: slots.eraser.width };
     case "lasso":
@@ -225,34 +251,107 @@ function withSlots(toolbox: Toolbox, slots: ToolSlots): Toolbox {
   return { ...toolbox, slots };
 }
 
+/** The PencilKit ink a colour slot draws with. */
+export function inkOf(toolbox: Toolbox, slot: ColorSlot): InkType | "marker" {
+  switch (slot) {
+    case "pen":
+      return toolbox.slots.pen.ink;
+    case "pencil":
+      return "pencil";
+    case "highlighter":
+      return "marker";
+  }
+}
+
+/** The widths a colour slot's current ink accepts. */
+export function slotWidthRange(toolbox: Toolbox, slot: ColorSlot): WidthRange {
+  return widthRange(inkOf(toolbox, slot));
+}
+
+/** The width a slot actually draws with: its width, clamped to what its ink accepts. */
+export function effectiveWidth(toolbox: Toolbox, slot: ColorSlot): number {
+  return clampWidth(toolbox.slots[slot].width, slotWidthRange(toolbox, slot));
+}
+
+/** The preset the slot is drawing with, or null after a custom width. */
+export function activePreset(toolbox: Toolbox, slot: ColorSlot): TrioIndex | null {
+  const range = slotWidthRange(toolbox, slot);
+  const width = effectiveWidth(toolbox, slot);
+  const index = toolbox.slots[slot].widthPresets.findIndex((preset) => clampWidth(preset, range) === width);
+  return index === 0 || index === 1 || index === 2 ? index : null;
+}
+
+/** Draws with one of the slot's width presets. */
+export function selectWidthPreset(toolbox: Toolbox, slot: ColorSlot, index: TrioIndex): Toolbox {
+  const width = toolbox.slots[slot].widthPresets[index];
+  return toolbox.slots[slot].width === width
+    ? toolbox
+    : updateColorSlot(toolbox, slot, (settings) => ({ ...settings, width }));
+}
+
 /**
- * A plain-English name for a colour, for VoiceOver ("Blue pen"). Custom colours have no stored
- * name, so every colour is named from its hue, saturation and lightness.
+ * Changes one width preset (from the slider) and draws with it. The width is clamped to the ink's
+ * range and rounded to 0.1 pt, so the preset stays selected.
  */
-export function colorName(color: HexColor): string {
-  const channel = (start: number) => Number.parseInt(color.slice(start, start + 2), 16) / 255;
-  const red = channel(1);
-  const green = channel(3);
-  const blue = channel(5);
-  const max = Math.max(red, green, blue);
-  const min = Math.min(red, green, blue);
-  const lightness = (max + min) / 2;
-  const delta = max - min;
-  const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1));
+export function setWidthPreset(toolbox: Toolbox, slot: ColorSlot, index: TrioIndex, width: number): Toolbox {
+  if (!Number.isFinite(width)) return toolbox;
+  const clamped = clampWidth(width, slotWidthRange(toolbox, slot));
+  const widthPresets = replaceAt(toolbox.slots[slot].widthPresets, index, clamped);
+  return updateColorSlot(toolbox, slot, (settings) => ({ ...settings, width: clamped, widthPresets }));
+}
 
-  if (lightness < 0.15) return "Black";
-  if (lightness > 0.92) return "White";
-  if (saturation < 0.15) return "Gray";
+/** Changes the pen's ink. Widths stay as they are and are clamped to the new ink when drawing. */
+export function setPenInk(toolbox: Toolbox, ink: PenInk): Toolbox {
+  const { slots } = toolbox;
+  return slots.pen.ink === ink ? toolbox : withSlots(toolbox, { ...slots, pen: { ...slots.pen, ink } });
+}
 
-  const sector =
-    max === red ? (green - blue) / delta : max === green ? (blue - red) / delta + 2 : (red - green) / delta + 4;
-  const hue = (sector * 60 + 360) % 360;
-  if (hue < 15 || hue >= 345) return lightness < 0.3 ? "Brown" : "Red";
-  if (hue < 45) return lightness < 0.35 ? "Brown" : "Orange";
-  if (hue < 70) return "Yellow";
-  if (hue < 165) return "Green";
-  if (hue < 195) return "Teal";
-  if (hue < 255) return "Blue";
-  if (hue < 290) return "Purple";
-  return "Pink";
+/**
+ * Puts `color` in one of the slot's pinned places (from the colour popover) and draws with it.
+ * Recent colours are separate (`addRecentColor`): the system picker reports every colour on the
+ * way while dragging, and only the one the user settles on belongs in the list.
+ */
+export function setPinnedColor(toolbox: Toolbox, slot: ColorSlot, index: TrioIndex, color: HexColor): Toolbox {
+  const settings = toolbox.slots[slot];
+  if (sameColor(settings.pinnedColors[index], color) && sameColor(settings.color, color)) {
+    return selectSlot(toolbox, slot);
+  }
+  const pinnedColors = replaceAt(settings.pinnedColors, index, color);
+  return selectSlot(
+    updateColorSlot(toolbox, slot, (current) => ({ ...current, color, pinnedColors })),
+    slot,
+  );
+}
+
+/** Remembers a colour the user picked in the colour popover. */
+export function addRecentColor(toolbox: Toolbox, color: HexColor): Toolbox {
+  const recentColors = rememberColor(toolbox.recentColors, color);
+  const unchanged =
+    recentColors.length === toolbox.recentColors.length &&
+    recentColors.every((candidate, index) => candidate === toolbox.recentColors[index]);
+  return unchanged ? toolbox : { ...toolbox, recentColors };
+}
+
+/** Puts `color` first in the recent colours, without duplicates, keeping at most eight. */
+export function rememberColor(recent: readonly HexColor[], color: HexColor): readonly HexColor[] {
+  return [color, ...recent.filter((candidate) => !sameColor(candidate, color))].slice(0, MAX_RECENT_COLORS);
+}
+
+/** Changes the settings every colour slot shares; the pen keeps its ink. */
+type ColorSlotUpdate = <S extends InkSettings>(settings: S) => S;
+
+function updateColorSlot(toolbox: Toolbox, slot: ColorSlot, update: ColorSlotUpdate): Toolbox {
+  const { slots } = toolbox;
+  switch (slot) {
+    case "pen":
+      return withSlots(toolbox, { ...slots, pen: update(slots.pen) });
+    case "pencil":
+      return withSlots(toolbox, { ...slots, pencil: update(slots.pencil) });
+    case "highlighter":
+      return withSlots(toolbox, { ...slots, highlighter: update(slots.highlighter) });
+  }
+}
+
+function replaceAt<T>(trio: readonly [T, T, T], index: TrioIndex, value: T): readonly [T, T, T] {
+  return [index === 0 ? value : trio[0], index === 1 ? value : trio[1], index === 2 ? value : trio[2]];
 }

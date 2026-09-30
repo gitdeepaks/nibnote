@@ -156,7 +156,7 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
   const repository = useRepository();
   const canvasRef = useRef<PencilCanvasRef>(null);
   const toolbox = useToolbox((state) => state.toolbox);
-  const applyPencilAction = useToolbox((state) => state.applyPencilAction);
+  const toolActions = useToolbox((state) => state.actions);
   // A new tool object only when the tools change, so the canvas re-applies it only then.
   const tool = useMemo(() => canvasToolFor(toolbox), [toolbox]);
   const [history, setHistory] = useState({
@@ -185,7 +185,7 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
   const message = notice?.pageId === page.id ? notice.message : null;
 
   const handlePencilAction = (event: PencilActionEvent) => {
-    applyPencilAction(event.preferredAction);
+    toolActions.applyPencilAction(event.preferredAction);
   };
 
   const pageActions = (): PageActionContext => ({

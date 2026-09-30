@@ -1,14 +1,27 @@
-import { colorName, colorSlotOf, colorTarget, type ColorSlot, type HexColor, type ToolSlot } from "@nibnote/shared";
-import { SymbolView, type SFSymbol } from "expo-symbols";
-import { Pressable, StyleSheet, View } from "react-native";
+import {
+  colorName,
+  colorSlotOf,
+  colorTarget,
+  sameColor,
+  type ColorSlot,
+  type HexColor,
+  type ToolSlot,
+  type TrioIndex,
+} from "@nibnote/shared";
+import type { SFSymbol } from "expo-symbols";
+import { useRef, useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../theme/colors";
+import { AnchoredPopover } from "./AnchoredPopover";
+import { ColorOptions } from "./ColorOptions";
+import { BUTTON, SwatchButton, ToolbarButton, ToolbarDivider } from "./toolbarControls";
 import { useToolbox } from "./ToolboxProvider";
+import { ToolOptions } from "./ToolOptions";
 
 // The floating toolbar: the five tools, the pinned colours of the current colour tool, undo and
-// redo, and the Pencil-only switch. It floats over the page at the bottom; docking comes in M2a.
-
-const BUTTON = 44;
+// redo, and the Pencil-only switch. Tapping the selected tool opens its width options; tapping the
+// selected colour (or long-pressing any colour) opens the colour options for that pin.
 
 const SLOTS: readonly { readonly slot: ToolSlot; readonly label: string; readonly icon: SFSymbol }[] = [
   { slot: "pen", label: "Pen", icon: "pencil.tip" },
@@ -25,6 +38,14 @@ const COLOR_TOOL_NAMES: Readonly<Record<ColorSlot, string>> = {
   highlighter: "highlighter",
 };
 
+const PIN_INDEXES: readonly TrioIndex[] = [0, 1, 2];
+
+/** Which popover is open; only one at a time. */
+type OpenPopover =
+  | { readonly kind: "tool"; readonly slot: ColorSlot }
+  | { readonly kind: "color"; readonly slot: ColorSlot; readonly index: TrioIndex }
+  | null;
+
 type ToolbarProps = {
   readonly canUndo: boolean;
   readonly canRedo: boolean;
@@ -35,12 +56,21 @@ type ToolbarProps = {
 export function Toolbar({ canUndo, canRedo, onUndo, onRedo }: ToolbarProps) {
   const insets = useSafeAreaInsets();
   const toolbox = useToolbox((state) => state.toolbox);
-  const selectSlot = useToolbox((state) => state.selectSlot);
-  const chooseColor = useToolbox((state) => state.chooseColor);
-  const toggleDrawingPolicy = useToolbox((state) => state.toggleDrawingPolicy);
-  const policy = toolbox.drawingPolicy;
+  const actions = useToolbox((state) => state.actions);
+  const [open, setOpen] = useState<OpenPopover>(null);
+  // The last colour from the system picker; it joins the recent colours when the popover closes.
+  const systemPick = useRef<HexColor | null>(null);
+
   const target = colorTarget(toolbox);
   const targetSettings = toolbox.slots[target];
+  const policy = toolbox.drawingPolicy;
+
+  const close = () => {
+    const picked = systemPick.current;
+    systemPick.current = null;
+    if (picked !== null) actions.addRecentColor(picked);
+    setOpen(null);
+  };
 
   return (
     <View
@@ -64,35 +94,80 @@ export function Toolbar({ canUndo, canRedo, onUndo, onRedo }: ToolbarProps) {
       >
         {SLOTS.map((item) => {
           const colorSlot = colorSlotOf(item.slot);
-          return (
+          const selected = toolbox.active === item.slot;
+          const button = (
             <ToolbarButton
-              key={item.slot}
               icon={item.icon}
               label={item.label}
-              hint={null}
-              selected={toolbox.active === item.slot}
+              hint={selected && colorSlot !== null ? "Shows width options" : null}
+              selected={selected}
               disabled={false}
               dot={colorSlot === null ? null : toolbox.slots[colorSlot].color}
               onPress={() => {
-                selectSlot(item.slot);
+                if (selected && colorSlot !== null) setOpen({ kind: "tool", slot: colorSlot });
+                else actions.selectSlot(item.slot);
               }}
             />
           );
+          if (colorSlot === null) return <View key={item.slot}>{button}</View>;
+          return (
+            <AnchoredPopover
+              key={item.slot}
+              open={open?.kind === "tool" && open.slot === colorSlot}
+              onOpenChange={(next) => {
+                if (!next) close();
+              }}
+              side="above"
+              anchor={button}
+              content={<ToolOptions slot={colorSlot} />}
+            />
+          );
         })}
-        <Divider />
-        {targetSettings.pinnedColors.map((color, index) => (
-          <ColorButton
-            // Pinned colours can repeat, so the position is the stable key.
-            key={index}
-            color={color}
-            label={`${colorName(color)} ${COLOR_TOOL_NAMES[target]}`}
-            selected={toolbox.active === target && targetSettings.color === color}
-            onPress={() => {
-              chooseColor(target, color);
-            }}
-          />
-        ))}
-        <Divider />
+        <ToolbarDivider />
+        {PIN_INDEXES.map((index) => {
+          const color = targetSettings.pinnedColors[index];
+          const selected = toolbox.active === target && sameColor(targetSettings.color, color);
+          const openColor = () => {
+            setOpen({ kind: "color", slot: target, index });
+          };
+          return (
+            <AnchoredPopover
+              // Pinned colours can repeat, so the position is the stable key.
+              key={index}
+              open={open?.kind === "color" && open.slot === target && open.index === index}
+              onOpenChange={(next) => {
+                if (!next) close();
+              }}
+              side="above"
+              anchor={
+                <SwatchButton
+                  color={color}
+                  label={`${colorName(color)} ${COLOR_TOOL_NAMES[target]}`}
+                  hint={selected ? "Shows colour options" : "Long press for colour options"}
+                  selected={selected}
+                  size={26}
+                  onPress={() => {
+                    if (selected) openColor();
+                    else actions.chooseColor(target, color);
+                  }}
+                  onLongPress={openColor}
+                />
+              }
+              content={
+                <ColorOptions
+                  // A fresh editor (and HEX field) for each pin.
+                  key={`${target}-${String(index)}`}
+                  slot={target}
+                  index={index}
+                  onSystemPick={(picked) => {
+                    systemPick.current = picked;
+                  }}
+                />
+              }
+            />
+          );
+        })}
+        <ToolbarDivider />
         <ToolbarButton
           icon="arrow.uturn.backward"
           label="Undo"
@@ -111,7 +186,7 @@ export function Toolbar({ canUndo, canRedo, onUndo, onRedo }: ToolbarProps) {
           dot={null}
           onPress={onRedo}
         />
-        <Divider />
+        <ToolbarDivider />
         <ToolbarButton
           icon={policy === "pencilOnly" ? "applepencil" : "hand.draw"}
           label={policy === "pencilOnly" ? "Drawing with Apple Pencil only" : "Drawing with any input"}
@@ -119,99 +194,9 @@ export function Toolbar({ canUndo, canRedo, onUndo, onRedo }: ToolbarProps) {
           selected={false}
           disabled={false}
           dot={null}
-          onPress={toggleDrawingPolicy}
+          onPress={actions.toggleDrawingPolicy}
         />
       </View>
     </View>
-  );
-}
-
-type ToolbarButtonProps = {
-  readonly icon: SFSymbol;
-  readonly label: string;
-  readonly hint: string | null;
-  readonly selected: boolean;
-  readonly disabled: boolean;
-  /** The colour the tool draws with, shown as a dot under its icon. */
-  readonly dot: HexColor | null;
-  readonly onPress: () => void;
-};
-
-function ToolbarButton({ icon, label, hint, selected, disabled, dot, onPress }: ToolbarButtonProps) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      {...(hint === null ? {} : { accessibilityHint: hint })}
-      accessibilityState={{ selected, disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={{
-        width: BUTTON,
-        height: BUTTON,
-        borderRadius: BUTTON / 2,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: selected ? colors.tint : "transparent",
-        opacity: disabled ? 0.35 : 1,
-      }}
-    >
-      <SymbolView name={icon} size={22} tintColor={selected ? "#FFFFFF" : colors.label} />
-      {dot !== null && (
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            bottom: 4,
-            width: 7,
-            height: 7,
-            borderRadius: 3.5,
-            backgroundColor: dot,
-            // A ring, so the dot shows on the selected tint and dark ink shows on the dark toolbar.
-            borderWidth: 1,
-            borderColor: selected ? "#FFFFFF" : colors.tertiaryLabel,
-          }}
-        />
-      )}
-    </Pressable>
-  );
-}
-
-type ColorButtonProps = {
-  readonly color: HexColor;
-  readonly label: string;
-  readonly selected: boolean;
-  readonly onPress: () => void;
-};
-
-function ColorButton({ color, label, selected, onPress }: ColorButtonProps) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected }}
-      onPress={onPress}
-      style={{ width: BUTTON, height: BUTTON, alignItems: "center", justifyContent: "center" }}
-    >
-      <View
-        style={{
-          width: 26,
-          height: 26,
-          borderRadius: 13,
-          backgroundColor: color,
-          // A visible ring, so black ink still shows on the dark toolbar.
-          borderWidth: selected ? 3 : 1.5,
-          borderColor: selected ? colors.tint : colors.tertiaryLabel,
-        }}
-      />
-    </Pressable>
-  );
-}
-
-function Divider() {
-  return (
-    <View
-      style={{ width: StyleSheet.hairlineWidth, height: 28, marginHorizontal: 4, backgroundColor: colors.separator }}
-    />
   );
 }
