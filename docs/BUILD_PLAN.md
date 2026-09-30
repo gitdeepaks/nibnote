@@ -1141,14 +1141,14 @@ iPadOS 26 deprecated `UIRequiresFullScreen`; apps must handle every orientation 
 
 ### C. Local data and files
 
-- [ ] `[P2]` **Relative paths only.** The app container path can change on update or reinstall, so `drawingPath`, `thumbnailPath` and `pdfPath` are stored relative to Documents/Caches and resolved at runtime.
-- [ ] `[P2]` **Migration for existing absolute paths.** If any build stored absolute paths, a Drizzle migration strips the container prefix; verified on a device that already has notes.
-- [ ] `[P2]` **Per-page size.** `pages.widthPt` and `pages.heightPt` exist (PDF pages differ); paper pages copy the notebook size. Server schema gets the same fields in its next migration.
+- [x] `[P2]` **Relative paths only.** The app container path can change on update or reinstall, so `drawingPath`, `thumbnailPath` and `pdfPath` are stored relative to Documents/Caches and resolved at runtime. Done in Phase 2 (M1): `RelativePath` rejects absolute paths, URLs and `..` (tested in `@nibnote/shared`).
+- [x] `[P2]` **Migration for existing absolute paths.** If any build stored absolute paths, a Drizzle migration strips the container prefix; verified on a device that already has notes. Not needed: the database arrived in Phase 2 (M1) with relative paths, so no build ever stored an absolute one.
+- [ ] `[P2]` **Per-page size.** `pages.widthPt` and `pages.heightPt` exist (PDF pages differ); paper pages copy the notebook size. Server schema gets the same fields in its next migration. The local part is done in Phase 2 (M1, tested); the server fields remain for Phase 4.
 - [ ] `[P2]` Install a new build over an old one: every notebook, drawing and thumbnail still opens.
 - [x] `[P2]` Delete the Caches folder: thumbnails regenerate, nothing else breaks. Done in Phase 2 (M5): `renderThumbnail`, checked with the diagnostics "Clear Thumbnails".
-- [ ] `[P2]` Reorder one page 200 times: `sortKey` length stays bounded; keys rebalance when they grow past a limit.
+- [x] `[P2]` Reorder one page 200 times: `sortKey` length stays bounded; keys rebalance when they grow past a limit. Done in Phase 2 (M1): tested in `@nibnote/db` (`SORT_KEY_MAX_LENGTH`).
 - [ ] `[P2]` Forced migration failure restores the backup DB and shows the recovery screen.
-- [ ] `[P2]` Trash purge after 30 days runs on launch and is idempotent.
+- [x] `[P2]` Trash purge after 30 days runs on launch and is idempotent. Done in Phase 2 (M1): `purgeExpired` runs at boot; a second run is a no-op (tested in `@nibnote/db`).
 - [x] `[P2]` Daily note uses the device's local date and handles timezone changes. Done in Phase 2 (M4b).
 - [ ] `[P2]` Deep link `nibnote://notebook/<id>` parses params with Zod; an invalid ID shows "Not found".
 - [ ] `[P2]` Titles with emoji, very long titles and empty titles (default name) display and sort correctly.
