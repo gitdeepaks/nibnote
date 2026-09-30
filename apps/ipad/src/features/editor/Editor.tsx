@@ -1,14 +1,14 @@
-import type {
-  DrawingPolicy,
-  Notebook,
-  NotebookId,
-  Page,
-  PageId,
-  PageSwipeEvent,
-  PencilActionEvent,
+import {
+  canvasToolFor,
+  type Notebook,
+  type NotebookId,
+  type Page,
+  type PageId,
+  type PageSwipeEvent,
+  type PencilActionEvent,
 } from "@nibnote/shared";
 import { router, Stack } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, Easing, Text, View } from "react-native";
 import { PencilCanvas, type PencilCanvasRef } from "../../../modules/pencil-canvas";
 import { EmptyState, LoadingState } from "../../components/EmptyState";
@@ -32,8 +32,8 @@ import { lastOpenMs, stopOpenTimer } from "./openTimer";
 import { addPageAfter, showPageActions, type PageActionContext } from "./pageActions";
 import { PageGrid } from "./PageGrid";
 import { PageStrip } from "./PageStrip";
-import { ToolPalette } from "./ToolPalette";
-import { DEFAULT_PEN_COLOR, toolAfterPencilAction, toolFor, type ToolKey } from "./tools";
+import { Toolbar } from "../toolbar/Toolbar";
+import { useToolbox } from "../toolbar/ToolboxProvider";
 
 /** Missing, trashed or malformed notebook: shown for bad deep links and for notebooks trashed meanwhile. */
 export function NotebookNotFound() {
@@ -155,10 +155,10 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
   const pageCount = pages.length;
   const repository = useRepository();
   const canvasRef = useRef<PencilCanvasRef>(null);
-  const [tool, setTool] = useState<ToolKey>("pen");
-  const [previousTool, setPreviousTool] = useState<ToolKey>("pen");
-  const [penColor, setPenColor] = useState(DEFAULT_PEN_COLOR);
-  const [policy, setPolicy] = useState<DrawingPolicy>("pencilOnly");
+  const toolbox = useToolbox((state) => state.toolbox);
+  const applyPencilAction = useToolbox((state) => state.applyPencilAction);
+  // A new tool object only when the tools change, so the canvas re-applies it only then.
+  const tool = useMemo(() => canvasToolFor(toolbox), [toolbox]);
   const [history, setHistory] = useState({
     pageId: page.id,
     canUndo: false,
@@ -184,14 +184,8 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
   const canRedo = history.pageId === page.id && history.canRedo;
   const message = notice?.pageId === page.id ? notice.message : null;
 
-  const selectTool = (next: ToolKey) => {
-    if (next === tool) return;
-    setPreviousTool(tool);
-    setTool(next);
-  };
-
   const handlePencilAction = (event: PencilActionEvent) => {
-    selectTool(toolAfterPencilAction(event.preferredAction, tool, previousTool));
+    applyPencilAction(event.preferredAction);
   };
 
   const pageActions = (): PageActionContext => ({
@@ -279,22 +273,6 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
             addPageAfter(pageActions(), page.id);
           }}
         />
-        <Stack.Toolbar.Button
-          icon="arrow.uturn.backward"
-          accessibilityLabel="Undo"
-          disabled={!canUndo}
-          onPress={() => {
-            run("Undo", (canvas) => canvas.undo());
-          }}
-        />
-        <Stack.Toolbar.Button
-          icon="arrow.uturn.forward"
-          accessibilityLabel="Redo"
-          disabled={!canRedo}
-          onPress={() => {
-            run("Redo", (canvas) => canvas.redo());
-          }}
-        />
         {showsDiagnostics && (
           <Stack.Toolbar.Menu icon="hammer" accessibilityLabel="Diagnostics">
             <Stack.Toolbar.MenuAction icon="stopwatch" disabled>
@@ -375,8 +353,8 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
               drawingFileUri={drawingFileUri(page)}
               pageSize={{ widthPt: page.widthPt, heightPt: page.heightPt }}
               template={page.template}
-              tool={toolFor(tool, penColor)}
-              drawingPolicy={policy}
+              tool={tool}
+              drawingPolicy={toolbox.drawingPolicy}
               onDrawingChanged={(event) => {
                 stopOpenTimer(notebook.id);
                 setHistory({
@@ -394,17 +372,14 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
               onPageSwipe={handlePageSwipe}
             />
           </Animated.View>
-          <ToolPalette
-            tool={tool}
-            penColor={penColor}
-            policy={policy}
-            onSelectTool={selectTool}
-            onSelectPenColor={(color) => {
-              setPenColor(color);
-              selectTool("pen");
+          <Toolbar
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUndo={() => {
+              run("Undo", (canvas) => canvas.undo());
             }}
-            onTogglePolicy={() => {
-              setPolicy(policy === "pencilOnly" ? "anyInput" : "pencilOnly");
+            onRedo={() => {
+              run("Redo", (canvas) => canvas.redo());
             }}
           />
           <View pointerEvents="box-none" style={{ position: "absolute", top: 12, left: 0, right: 0, gap: 8 }}>

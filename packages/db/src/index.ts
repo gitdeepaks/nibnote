@@ -4,6 +4,7 @@ import { createNotebookQueries } from "./repository/notebooks";
 import { createPageQueries } from "./repository/pages";
 import { createSettingsQueries } from "./repository/settings";
 import { createTabQueries } from "./repository/tabs";
+import { createToolboxQueries } from "./repository/toolbox";
 import { createTrashQueries } from "./repository/trash";
 import type { Db, RepositoryDeps } from "./repository/types";
 
@@ -17,6 +18,7 @@ export function createRepository<R>(db: Db<R>, deps: RepositoryDeps) {
     settings: createSettingsQueries(db),
     capture: createCaptureQueries(db, deps),
     tabs: createTabQueries(db),
+    toolbox: createToolboxQueries(db),
   };
 }
 

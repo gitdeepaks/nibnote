@@ -33,8 +33,8 @@ final class PencilCanvasView: ExpoView {
         await self?.saveCurrentPage()
     }
     /// Gesture delegates are weak, so the view keeps the swipe gate alive.
-    private(set) lazy var pageSwipeGate = PageSwipeGate { [weak self] in
-        self?.allowsPageSwipe ?? false
+    private(set) lazy var pageSwipeGate = PageSwipeGate { [weak self] touches in
+        self?.allowsPageSwipe(touches: touches) ?? false
     }
     private let toolPicker = PKToolPicker()
     private let pencilInteraction = UIPencilInteraction()

@@ -1,0 +1,4 @@
+{
+  "typescript.tsdk": "apps/ipad/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}
