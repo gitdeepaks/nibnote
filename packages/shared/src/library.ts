@@ -65,7 +65,10 @@ export function localDateOf(date: Date): LocalDate {
 export const Folder = z
   .object({
     id: FolderId,
-    name: z.string().min(1).max(TITLE_MAX_LENGTH * 4),
+    name: z
+      .string()
+      .min(1)
+      .max(TITLE_MAX_LENGTH * 4),
     parentId: FolderId.nullable(),
     sortKey: z.string().min(1),
     role: FolderRole.nullable(),
@@ -78,7 +81,10 @@ export const Notebook = z
   .object({
     id: NotebookId,
     folderId: FolderId.nullable(),
-    title: z.string().min(1).max(TITLE_MAX_LENGTH * 4),
+    title: z
+      .string()
+      .min(1)
+      .max(TITLE_MAX_LENGTH * 4),
     coverColor: HexColor,
     pageSize: PageSize,
     defaultTemplate: PageTemplate,
@@ -99,7 +105,10 @@ export const Page = z
     widthPt: z.number().positive(),
     heightPt: z.number().positive(),
     drawingPath: RelativePath,
-    drawingHash: z.string().regex(/^[0-9a-f]{64}$/).nullable(),
+    drawingHash: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .nullable(),
     thumbnailPath: RelativePath.nullable(),
     /** The day this page belongs to in the Daily notebook; null for every other page. */
     dailyDate: LocalDate.nullable(),

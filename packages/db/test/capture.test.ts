@@ -15,7 +15,9 @@ describe("daily note", () => {
     expect(daily?.title).toBe(DAILY_NOTEBOOK_TITLE);
     expect(daily?.role).toBe("daily");
     const pages = repo.pages.list(first.notebookId);
-    expect(pages.map((page) => [page.id, page.dailyDate, page.template.kind])).toEqual([[first.pageId, monday, "blank"]]);
+    expect(pages.map((page) => [page.id, page.dailyDate, page.template.kind])).toEqual([
+      [first.pageId, monday, "blank"],
+    ]);
   });
 
   test("a new day adds a page at the end of the same notebook", () => {
@@ -30,7 +32,7 @@ describe("daily note", () => {
     const { repo } = openTestDb();
     const first = unwrap(repo.capture.openDailyPage(monday));
     unwrap(repo.capture.openDailyPage(tuesday));
-    unwrap(repo.notebooks.update(first.notebookId, { title: "Journal" }));
+    unwrap(repo.notebooks.update(first.notebookId, { kind: "rename", title: "Journal" }));
     unwrap(repo.pages.trash(first.pageId));
     const remade = unwrap(repo.capture.openDailyPage(monday));
     expect(remade.notebookId).toBe(first.notebookId);
@@ -42,7 +44,7 @@ describe("daily note", () => {
 
   test("an ordinary notebook's pages never count as a day", () => {
     const { repo } = openTestDb();
-    const other = unwrap(repo.notebooks.create(newNotebookInput())).firstPage;
+    const other = unwrap(repo.notebooks.create(newNotebookInput("DSA"))).firstPage;
     expect(other.dailyDate).toBeNull();
     const copy = unwrap(repo.capture.openDailyPage(monday));
     const duplicate = unwrap(repo.pages.duplicate(copy.pageId)).page;
@@ -54,7 +56,7 @@ describe("daily note", () => {
 describe("quick note", () => {
   test("each quick note is a new one-page notebook in the Inbox folder, listed first", () => {
     const { repo, advance } = openTestDb();
-    unwrap(repo.folders.create({ name: "Work", parentId: null }));
+    unwrap(repo.folders.create({ name: "Work", parentId: null, role: null }));
     const first = unwrap(repo.capture.createQuickNote("Quick Note · 28 Sep, 10:42"));
     advance(1000);
     const second = unwrap(repo.capture.createQuickNote("Quick Note · 28 Sep, 10:43"));

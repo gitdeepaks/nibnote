@@ -26,15 +26,21 @@ export function createFolderQueries<R>(db: Db<R>, deps: RepositoryDeps) {
   return {
     /** Live folders, parents and children together, in sort order. */
     list(): Folder[] {
-      return db.select().from(folders).where(isNull(folders.deletedAt)).orderBy(asc(folders.sortKey)).all().map(toFolder);
+      return db
+        .select()
+        .from(folders)
+        .where(isNull(folders.deletedAt))
+        .orderBy(asc(folders.sortKey))
+        .all()
+        .map(toFolder);
     },
 
     /** Creates a folder at the top level or inside a top-level folder (one level of nesting). */
     create(input: {
       readonly name: string;
       readonly parentId: FolderId | null;
-      /** Only for folders the app manages, like the Quick Note inbox. */
-      readonly role?: FolderRole;
+      /** Only for folders the app manages, like the Quick Note inbox; null for the user's folders. */
+      readonly role: FolderRole | null;
     }): Result<Folder, RepositoryError> {
       return db.transaction((tx) => {
         if (input.parentId !== null) {
@@ -42,7 +48,8 @@ export function createFolderQueries<R>(db: Db<R>, deps: RepositoryDeps) {
           if (parent === undefined) return err({ code: "notFound", entity: "folder" });
           if (parent.parentId !== null) return err({ code: "folderTooDeep" });
         }
-        const siblingsCondition = input.parentId === null ? isNull(folders.parentId) : eq(folders.parentId, input.parentId);
+        const siblingsCondition =
+          input.parentId === null ? isNull(folders.parentId) : eq(folders.parentId, input.parentId);
         const last = tx
           .select({ sortKey: folders.sortKey })
           .from(folders)
@@ -56,7 +63,7 @@ export function createFolderQueries<R>(db: Db<R>, deps: RepositoryDeps) {
           name: normaliseTitle(input.name, DEFAULT_FOLDER_NAME),
           parentId: input.parentId,
           sortKey: keyBetween(last?.sortKey ?? null, null),
-          role: input.role ?? null,
+          role: input.role,
           createdAt: now,
           updatedAt: now,
         };
@@ -99,7 +106,10 @@ export function createFolderQueries<R>(db: Db<R>, deps: RepositoryDeps) {
           .where(and(inArray(notebooks.folderId, folderIds), isNull(notebooks.deletedAt)))
           .all()
           .map((row) => row.id);
-        tx.update(folders).set({ deletedAt: now, updatedAt: now, isDirty: true }).where(inArray(folders.id, folderIds)).run();
+        tx.update(folders)
+          .set({ deletedAt: now, updatedAt: now, isDirty: true })
+          .where(inArray(folders.id, folderIds))
+          .run();
         if (notebookIds.length > 0) {
           tx.update(notebooks)
             .set({ deletedAt: now, updatedAt: now, isDirty: true })

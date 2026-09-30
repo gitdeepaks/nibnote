@@ -5,7 +5,7 @@ import { reportFailure } from "../../db/reportFailure";
 
 // One-tap capture from the library: today's Daily page, or a fresh Quick Note in the Inbox.
 
-const quickNoteTime = new Intl.DateTimeFormat(undefined, {
+const quickNoteTime = new Intl.DateTimeFormat([], {
   day: "numeric",
   month: "short",
   hour: "numeric",

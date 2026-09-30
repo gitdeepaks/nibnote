@@ -29,14 +29,26 @@ export function NotebookGrid({ section, folders, width, onCreate }: NotebookGrid
 
   if (library.status === "loading") return <LoadingState />;
   if (library.status === "error") {
-    return <EmptyState icon="exclamationmark.triangle" title="Couldn't load notebooks" message={library.message} />;
+    return (
+      <EmptyState
+        icon="exclamationmark.triangle"
+        title="Couldn't load notebooks"
+        message={library.message}
+        action={null}
+      />
+    );
   }
   const { notebooks, pageCounts, now } = library.value;
   if (notebooks.length === 0) {
     return section.kind === "favourites" ? (
-      <EmptyState icon="star" title="No favourites" message="Long press a notebook and add it to Favourites." />
+      <EmptyState
+        icon="star"
+        title="No favourites"
+        message="Long press a notebook and add it to Favourites."
+        action={null}
+      />
     ) : section.kind === "recents" ? (
-      <EmptyState icon="clock" title="Nothing opened yet" message="Notebooks you open appear here." />
+      <EmptyState icon="clock" title="Nothing opened yet" message="Notebooks you open appear here." action={null} />
     ) : (
       <EmptyState
         icon="book.closed"
@@ -57,12 +69,7 @@ export function NotebookGrid({ section, folders, width, onCreate }: NotebookGrid
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={{ padding: 16 }}
       renderItem={({ item }) => (
-        <NotebookCard
-          notebook={item}
-          pageCount={pageCounts.get(item.id) ?? 0}
-          now={now}
-          folders={folders}
-        />
+        <NotebookCard notebook={item} pageCount={pageCounts.get(item.id) ?? 0} now={now} folders={folders} />
       )}
     />
   );

@@ -25,10 +25,28 @@ export function RecoveryScreen({ message, restoredBackup, onRetry }: RecoveryScr
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 32, backgroundColor: "#FAF8F3" },
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    padding: 32,
+    backgroundColor: "#FAF8F3",
+  },
   title: { fontSize: 24, fontWeight: "700", color: "#1C1C1E" },
   body: { maxWidth: 480, fontSize: 16, textAlign: "center", color: "#3A3A3C" },
-  detail: { maxWidth: 480, fontSize: 12, textAlign: "center", color: "#8E8E93" },
-  button: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10, backgroundColor: "#1C1C1E" },
+  detail: {
+    maxWidth: 480,
+    fontSize: 12,
+    textAlign: "center",
+    color: "#8E8E93",
+  },
+  button: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: "#1C1C1E",
+  },
   buttonText: { fontSize: 16, fontWeight: "600", color: "#FFFFFF" },
 });

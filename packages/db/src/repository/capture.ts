@@ -108,6 +108,7 @@ export function createCaptureQueries<R>(db: Db<R>, deps: RepositoryDeps) {
           PageId.parse(deps.newId()),
           keyBetween(null, null),
           defaultShape(notebook),
+          null,
         );
         return ok({ notebook: toNotebook(notebook), firstPage });
       });

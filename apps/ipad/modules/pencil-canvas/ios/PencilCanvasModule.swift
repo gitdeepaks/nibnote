@@ -4,6 +4,9 @@ import ExpoModulesCore
 /// packages/shared/src/canvas.ts; drawing bytes never cross the bridge, only file URIs and events.
 public final class PencilCanvasModule: Module {
     static let moduleName = "PencilCanvas"
+    /// Rebuilds thumbnails for pages that aren't on a canvas (after iOS purges the Caches folder).
+    /// An actor, so the Sendable module function can share it without capturing the module.
+    private static let thumbnails = ThumbnailWriter()
 
     public func definition() -> ModuleDefinition {
         Name(Self.moduleName)
@@ -11,6 +14,11 @@ public final class PencilCanvasModule: Module {
         // Save events belong to the module, not the view: the final save when the editor closes
         // completes after the view has left the window, and the database must still hear about it.
         Events("onDrawingSaved", "onThumbnailWritten")
+
+        // Renders a page's missing thumbnail from its drawing file, without mounting a canvas.
+        AsyncFunction("renderThumbnail") { (id: String, uri: String, size: PageSizeRecord, template: TemplateRecord) in
+            try await Self.renderThumbnail(pageId: id, drawingUri: uri, pageSize: size, template: template)
+        }
 
         View(PencilCanvasView.self) {
             Events("onDrawingChanged", "onPencilAction", "onCanvasError", "onPageSwipe")
@@ -56,5 +64,21 @@ public final class PencilCanvasModule: Module {
                 MainActor.assumeIsolated { view.debugFillStrokes(count: count) }
             }.runOnQueue(.main)
         }
+    }
+
+    /// Resolves false when there is nothing to render (no drawing file, or an invalid page). The app
+    /// reloads the page's image itself when this resolves true.
+    private static func renderThumbnail(
+        pageId: String, drawingUri: String, pageSize: PageSizeRecord, template: TemplateRecord
+    ) async throws -> Bool {
+        guard let drawingURL = URL(string: drawingUri), drawingURL.isFileURL, !pageId.isEmpty,
+            let spec = PageTemplateSpec.parse(kind: template.kind, spacingPt: template.spacingPt),
+            pageSize.widthPt > 0, pageSize.heightPt > 0
+        else { return false }
+        let request = ThumbnailRequest(
+            url: PencilCanvasView.thumbnailURL(pageId: pageId),
+            pageSize: CGSize(width: pageSize.widthPt, height: pageSize.heightPt),
+            template: spec)
+        return try await thumbnails.regenerate(from: drawingURL, request: request)
     }
 }

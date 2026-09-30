@@ -86,8 +86,8 @@ export function insertPage<R>(
   pageId: PageId,
   sortKey: string,
   shape: PageShape,
-  /** Only for the Daily notebook's page for that day. Copies of it are ordinary pages. */
-  dailyDate: LocalDate | null = null,
+  /** Only for the Daily notebook's page for that day; null for every other page (copies included). */
+  dailyDate: LocalDate | null,
 ): Page {
   const now = deps.now();
   const row = {
@@ -140,7 +140,7 @@ export function createPageQueries<R>(db: Db<R>, deps: RepositoryDeps) {
     const index = siblings.findIndex((page) => page.id === source.id);
     const copyId = PageId.parse(deps.newId());
     const sortKey = slotKey(tx, deps, siblings, index, copyId);
-    const page = insertPage(tx, deps, NotebookId.parse(source.notebookId), copyId, sortKey, source);
+    const page = insertPage(tx, deps, NotebookId.parse(source.notebookId), copyId, sortKey, source, null);
     return { page, sourceId: PageId.parse(source.id), copyFrom: toPage(source).drawingPath, copyTo: page.drawingPath };
   };
 
@@ -150,7 +150,9 @@ export function createPageQueries<R>(db: Db<R>, deps: RepositoryDeps) {
     pageIds: readonly PageId[],
   ): Result<{ readonly rows: PageRow[]; readonly notebookId: string }, RepositoryError> => {
     const wanted = new Set(pageIds);
-    const first = pageIds[0] === undefined ? undefined : findLive(tx, pageIds[0]);
+    const firstId = pageIds[0];
+    if (firstId === undefined) return err({ code: "notFound", entity: "page" });
+    const first = findLive(tx, firstId);
     if (first === undefined) return err({ code: "notFound", entity: "page" });
     const rows = livePages(tx, first.notebookId).filter((page) => wanted.has(PageId.parse(page.id)));
     if (rows.length !== wanted.size) return err({ code: "notFound", entity: "page" });
@@ -162,12 +164,16 @@ export function createPageQueries<R>(db: Db<R>, deps: RepositoryDeps) {
       return livePages(db, notebookId).map(toPage);
     },
 
-    /** The page to open a notebook on: the one it was left on, else its first page. */
-    openingPage(notebookId: NotebookId): Page | undefined {
+    /**
+     * The page to open a notebook on: `requested` (a deep link or the Daily note) when it is a live
+     * page of this notebook, else the page it was left on, else its first page. Null only when the
+     * notebook has no live pages.
+     */
+    openingPage(notebookId: NotebookId, requested: PageId | null): Page | null {
       const live = livePages(db, notebookId);
       const remembered = preferences.get(lastPageKey(notebookId), RememberedPage, null);
-      const row = live.find((page) => page.id === remembered) ?? live[0];
-      return row === undefined ? undefined : toPage(row);
+      const row = live.find((page) => page.id === requested) ?? live.find((page) => page.id === remembered) ?? live[0];
+      return row === undefined ? null : toPage(row);
     },
 
     /** Remembers the page on screen. Device-local, like `markOpened`: no outbox entry. */
@@ -186,17 +192,17 @@ export function createPageQueries<R>(db: Db<R>, deps: RepositoryDeps) {
       return new Map(rows.map((row) => [NotebookId.parse(row.notebookId), row.value]));
     },
 
-    /** Adds a blank page after `afterId`, or at the end when omitted. */
-    add(notebookId: NotebookId, afterId?: PageId): Result<Page, RepositoryError> {
+    /** Adds a blank page after `afterId`, or at the end when it is null. */
+    add(notebookId: NotebookId, afterId: PageId | null): Result<Page, RepositoryError> {
       return db.transaction((tx) => {
         const notebook = findLiveNotebook(tx, notebookId);
         if (notebook === undefined) return err({ code: "notFound", entity: "notebook" });
         const siblings = livePages(tx, notebookId);
-        const index = afterId === undefined ? siblings.length - 1 : siblings.findIndex((page) => page.id === afterId);
-        if (afterId !== undefined && index < 0) return err({ code: "notFound", entity: "page" });
+        const index = afterId === null ? siblings.length - 1 : siblings.findIndex((page) => page.id === afterId);
+        if (afterId !== null && index < 0) return err({ code: "notFound", entity: "page" });
         const pageId = PageId.parse(deps.newId());
         const sortKey = slotKey(tx, deps, siblings, index, pageId);
-        return ok(insertPage(tx, deps, notebookId, pageId, sortKey, defaultShape(notebook)));
+        return ok(insertPage(tx, deps, notebookId, pageId, sortKey, defaultShape(notebook), null));
       });
     },
 
@@ -257,7 +263,10 @@ export function createPageQueries<R>(db: Db<R>, deps: RepositoryDeps) {
           return toPage({ ...row, ...changes });
         });
         // Both notebooks changed content, so both move up the library (no notebook outbox entry).
-        tx.update(notebooks).set({ updatedAt: now }).where(inArray(notebooks.id, [notebookId, targetId])).run();
+        tx.update(notebooks)
+          .set({ updatedAt: now })
+          .where(inArray(notebooks.id, [notebookId, targetId]))
+          .run();
         return ok(moved);
       });
     },
@@ -267,8 +276,7 @@ export function createPageQueries<R>(db: Db<R>, deps: RepositoryDeps) {
         const moving = findLive(tx, pageId);
         if (moving === undefined) return err({ code: "notFound", entity: "page" });
         const siblings = livePages(tx, moving.notebookId).filter((page) => page.id !== pageId);
-        const index =
-          placement.afterId === null ? -1 : siblings.findIndex((page) => page.id === placement.afterId);
+        const index = placement.afterId === null ? -1 : siblings.findIndex((page) => page.id === placement.afterId);
         if (placement.afterId !== null && index < 0) return err({ code: "notFound", entity: "page" });
         const sortKey = slotKey(tx, deps, siblings, index, pageId);
         const now = deps.now();

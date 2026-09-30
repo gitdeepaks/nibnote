@@ -127,5 +127,9 @@ function PaletteButton({ icon, label, selected, onPress }: PaletteButtonProps) {
 }
 
 function Divider() {
-  return <View style={{ width: StyleSheet.hairlineWidth, height: 28, marginHorizontal: 4, backgroundColor: colors.separator }} />;
+  return (
+    <View
+      style={{ width: StyleSheet.hairlineWidth, height: 28, marginHorizontal: 4, backgroundColor: colors.separator }}
+    />
+  );
 }

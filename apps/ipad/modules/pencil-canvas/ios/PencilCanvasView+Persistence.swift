@@ -11,7 +11,7 @@ struct SaveRequest: Sendable {
 }
 
 extension PencilCanvasView {
-    static func thumbnailURL(pageId: String) -> URL {
+    nonisolated static func thumbnailURL(pageId: String) -> URL {
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
         return caches.appendingPathComponent("thumbs", isDirectory: true).appendingPathComponent("\(pageId).png")

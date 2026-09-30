@@ -23,7 +23,9 @@ describe("settings", () => {
     const { db, repo } = openTestDb();
     db.insert(schema.settings).values({ key: "theme", valueJson: "{not json" }).run();
     expect(repo.settings.get("theme", Theme, "light")).toBe("light");
-    db.update(schema.settings).set({ valueJson: JSON.stringify("sepia") }).run();
+    db.update(schema.settings)
+      .set({ valueJson: JSON.stringify("sepia") })
+      .run();
     expect(repo.settings.get("theme", Theme, "light")).toBe("light");
   });
 

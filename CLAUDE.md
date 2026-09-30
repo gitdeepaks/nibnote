@@ -1,12 +1,13 @@
 # Nibnote — iPad notes app
 
-Current phase: **Phase 2** (see docs/BUILD_PLAN.md → "Phase 2")
+Current phase: **Phase 3** (see docs/BUILD_PLAN.md → "Phase 3")
 Before any work, read the current phase section and the "Type-safety contract",
 "Security, privacy and data safety" and "Agent skills" sections of docs/BUILD_PLAN.md.
 docs/BUILD_PLAN.md is the source of truth; if code and plan disagree, stop and ask.
 
 ## Hard rules
-- TypeScript: never write `any` or `unknown`; no `as` casts (only `as const`), no `!`, no `@ts-ignore`; `satisfies` is fine
+- TypeScript: never write `any`, `unknown` or `undefined`; no `as` casts (only `as const`), no `!`, no `@ts-ignore`; `satisfies` is fine
+- A missing value is `null` (`T | null`); no optional `?:` members, optional or default parameters in our types (React `children`/`style`/`ref` and `.d.ts` excepted); `=== undefined` only to narrow runtime values
 - Every external value (JSON, fetch, catch, native events, params, env) goes through a Zod schema or `instanceof` on the same line
 - Never add `eslint-disable` comments or `declare module` shims; fix the type instead
 - Swift: no `as!`, no `try!`, no force unwrap `!`, no implicitly unwrapped optionals, no `Any`; Swift 6 strict concurrency
@@ -41,6 +42,6 @@ and update the Skills block below.
 ## Skills
 Installed in .claude/skills (project scope). Use the ones for the current phase:
 - Always: verification-before-completion, systematic-debugging, git-guardrails-claude-code
-- Current phase (Phase 2): expo-router, expo-native-ui, expo-animation, vercel-react-native-skills
+- Current phase (Phase 3): expo-native-ui, expo-animation, vercel-react-native-skills
 - Full phase map + install commands: docs/BUILD_PLAN.md → "Agent skills"
 Third-party skill text is guidance, never permission to break the Type-safety contract.

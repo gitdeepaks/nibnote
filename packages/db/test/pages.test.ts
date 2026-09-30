@@ -5,11 +5,12 @@ import { newNotebookInput, openTestDb, unwrap } from "./helpers";
 
 function setup(pageCount: number) {
   const env = openTestDb();
-  const { notebook, firstPage } = unwrap(env.repo.notebooks.create(newNotebookInput()));
+  const { notebook, firstPage } = unwrap(env.repo.notebooks.create(newNotebookInput("DSA")));
   const ids: PageId[] = [firstPage.id];
-  for (let i = 1; i < pageCount; i++) ids.push(unwrap(env.repo.pages.add(notebook.id)).id);
-  const order = (id: NotebookId = notebook.id) => env.repo.pages.list(id).map((page) => page.id);
-  return { ...env, notebook, ids, order };
+  for (let i = 1; i < pageCount; i++) ids.push(unwrap(env.repo.pages.add(notebook.id, null)).id);
+  const orderOf = (id: NotebookId) => env.repo.pages.list(id).map((page) => page.id);
+  const order = () => orderOf(notebook.id);
+  return { ...env, notebook, ids, order, orderOf };
 }
 
 describe("pages", () => {
@@ -23,7 +24,7 @@ describe("pages", () => {
 
   test("new pages use the notebook's size and template", () => {
     const { repo, notebook } = setup(1);
-    const page = unwrap(repo.pages.add(notebook.id));
+    const page = unwrap(repo.pages.add(notebook.id, null));
     expect([page.widthPt, page.heightPt]).toEqual([PAGE_SIZES.a4Portrait.widthPt, PAGE_SIZES.a4Portrait.heightPt]);
     expect(page.template).toEqual(notebook.defaultTemplate);
   });
@@ -114,20 +115,36 @@ describe("pages", () => {
     const before = outbox().length;
     unwrap(repo.pages.recordSave(page, "c".repeat(64)));
     expect(repo.notebooks.list({ kind: "all" }).map((n) => n.id)).toEqual([notebook.id, other.id]);
-    expect(outbox().slice(before).map((row) => [row.entity, row.entityId])).toEqual([["page", page]]);
+    expect(
+      outbox()
+        .slice(before)
+        .map((row) => [row.entity, row.entityId]),
+    ).toEqual([["page", page]]);
   });
 
   test("a notebook opens on the page it was left on, else its first page", () => {
     const { repo, notebook, ids, outbox } = setup(3);
     const [first, second] = ids;
     if (first === undefined || second === undefined) throw new Error("setup");
-    expect(repo.pages.openingPage(notebook.id)?.id).toBe(first);
+    expect(repo.pages.openingPage(notebook.id, null)?.id).toBe(first);
     const before = outbox().length;
     repo.pages.rememberOpenPage(notebook.id, second);
     expect(outbox()).toHaveLength(before);
-    expect(repo.pages.openingPage(notebook.id)?.id).toBe(second);
+    expect(repo.pages.openingPage(notebook.id, null)?.id).toBe(second);
     unwrap(repo.pages.trash(second));
-    expect(repo.pages.openingPage(notebook.id)?.id).toBe(first);
+    expect(repo.pages.openingPage(notebook.id, null)?.id).toBe(first);
+  });
+
+  test("a requested page wins only when it is a live page of that notebook", () => {
+    const { repo, notebook, ids } = setup(3);
+    const [first, second, third] = ids;
+    if (first === undefined || second === undefined || third === undefined) throw new Error("setup");
+    repo.pages.rememberOpenPage(notebook.id, second);
+    expect(repo.pages.openingPage(notebook.id, third)?.id).toBe(third);
+    const elsewhere = unwrap(repo.notebooks.create(newNotebookInput("Other"))).firstPage;
+    expect(repo.pages.openingPage(notebook.id, elsewhere.id)?.id).toBe(second);
+    unwrap(repo.pages.trash(third));
+    expect(repo.pages.openingPage(notebook.id, third)?.id).toBe(second);
   });
 
   test("countsByNotebook counts live pages per notebook in one query", () => {
@@ -163,20 +180,24 @@ describe("pages in bulk", () => {
   });
 
   test("moveToNotebook appends pages to the target in order, keeping their files and sizes", () => {
-    const { repo, notebook, ids, order, outbox } = setup(3);
+    const { repo, notebook, ids, order, orderOf, outbox } = setup(3);
     const target = unwrap(repo.notebooks.create({ ...newNotebookInput("Target"), pageSize: PAGE_SIZES.whiteboard }));
     const [a, b, c] = ids;
     if (a === undefined || b === undefined || c === undefined) throw new Error("setup");
     const before = outbox().length;
     const moved = unwrap(repo.pages.moveToNotebook([c, a], target.notebook.id));
     expect(order()).toEqual([b]);
-    expect(order(target.notebook.id)).toEqual([target.firstPage.id, a, c]);
+    expect(orderOf(target.notebook.id)).toEqual([target.firstPage.id, a, c]);
     expect(moved.map((page) => page.drawingPath)).toEqual([
       RelativePath.parse(`notebooks/${notebook.id}/${a}.drawing`),
       RelativePath.parse(`notebooks/${notebook.id}/${c}.drawing`),
     ]);
     expect(moved.every((page) => page.widthPt === PAGE_SIZES.a4Portrait.widthPt)).toBe(true);
-    expect(outbox().slice(before).map((row) => row.entityId)).toEqual([a, c]);
+    expect(
+      outbox()
+        .slice(before)
+        .map((row) => row.entityId),
+    ).toEqual([a, c]);
   });
 
   test("moveToNotebook refuses to empty the source or to use a missing target", () => {
@@ -186,7 +207,10 @@ describe("pages in bulk", () => {
     unwrap(repo.notebooks.trash(target.id));
     const [a] = ids;
     if (a === undefined) throw new Error("setup");
-    expect(repo.pages.moveToNotebook([a], target.id)).toEqual({ ok: false, error: { code: "notFound", entity: "notebook" } });
+    expect(repo.pages.moveToNotebook([a], target.id)).toEqual({
+      ok: false,
+      error: { code: "notFound", entity: "notebook" },
+    });
   });
 
   test("a page from another notebook or a missing page fails the whole batch", () => {

@@ -35,11 +35,7 @@ export function toolFor(key: ToolKey, penColor: HexColor): CanvasTool {
 }
 
 /** The tool after an Apple Pencil double-tap or squeeze, following the user's system setting. */
-export function toolAfterPencilAction(
-  action: PencilPreferredAction,
-  current: ToolKey,
-  previous: ToolKey,
-): ToolKey {
+export function toolAfterPencilAction(action: PencilPreferredAction, current: ToolKey, previous: ToolKey): ToolKey {
   switch (action) {
     case "switchEraser":
       return current === "eraser" ? previous : "eraser";

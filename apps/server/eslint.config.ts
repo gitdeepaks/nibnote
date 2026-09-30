@@ -1,3 +1,3 @@
 import { nibnoteConfig } from "@nibnote/config/eslint";
 
-export default nibnoteConfig({ tsconfigRootDir: import.meta.dirname });
+export default nibnoteConfig({ tsconfigRootDir: import.meta.dirname, ignores: [], bunToolingFiles: [] });

@@ -16,10 +16,10 @@ const COMPACT_WIDTH = 720;
 export default function LibraryScreen() {
   const repository = useRepository();
   const params = useLocalSearchParams();
-  const section = parseSection(params["section"]);
+  const section = parseSection(params["section"] ?? null);
   const { width } = useWindowDimensions();
   const isCompact = width < COMPACT_WIDTH;
-  const folders = useLiveRead(["folders"], (repo) => repo.folders.list());
+  const folders = useLiveRead(["folders"], (repo) => repo.folders.list(), "");
   const folderList = folders.status === "ready" ? folders.value : [];
 
   const select = (next: LibrarySection) => {

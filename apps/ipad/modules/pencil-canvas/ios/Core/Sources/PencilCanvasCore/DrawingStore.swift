@@ -177,6 +177,18 @@ actor ThumbnailWriter {
         }
     }
 
+    /// Rebuilds a thumbnail from the page's drawing file without a canvas (the Caches folder can be
+    /// purged by iOS). Read-only for the drawing: a missing or unreadable file writes nothing and
+    /// returns false, and the page keeps showing blank paper.
+    func regenerate(from drawingURL: URL, request: ThumbnailRequest) throws(DrawingStoreError) -> Bool {
+        guard SandboxPolicy.contains(drawingURL, root: sandboxRoot) else { throw .outsideSandbox }
+        guard let data = try? Data(contentsOf: drawingURL), let drawing = try? PKDrawing(data: data) else {
+            return false
+        }
+        try write(drawing, request: request)
+        return true
+    }
+
     /// Paper, template and ink, scaled to `pixelWidth`. Rendered in light appearance so
     /// thumbnails match the paper regardless of the system theme.
     static func renderThumbnail(drawing: PKDrawing, request: ThumbnailRequest) -> Data {

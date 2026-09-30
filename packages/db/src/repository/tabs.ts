@@ -22,13 +22,13 @@ export function createTabQueries<R>(db: Db<R>) {
       .from(notebooks)
       .where(and(eq(notebooks.id, id), isNull(notebooks.deletedAt)))
       .get();
-    return row === undefined ? undefined : toNotebook(row);
+    return row === undefined ? null : toNotebook(row);
   };
 
   const live = (): Notebook[] =>
     preferences.get(TABS_KEY, TabIds, []).flatMap((id) => {
       const notebook = liveNotebook(id);
-      return notebook === undefined ? [] : [notebook];
+      return notebook === null ? [] : [notebook];
     });
 
   const save = (tabs: readonly Notebook[]) => {
@@ -53,12 +53,10 @@ export function createTabQueries<R>(db: Db<R>) {
       const tabs = live();
       if (tabs.some((tab) => tab.id === id)) return;
       const notebook = liveNotebook(id);
-      if (notebook === undefined) return;
+      if (notebook === null) return;
       const next = [...tabs, notebook];
       while (next.length > MAX_TABS) {
-        const oldest = next
-          .slice(0, -1)
-          .reduce((a, b) => ((a.lastOpenedAt ?? 0) <= (b.lastOpenedAt ?? 0) ? a : b));
+        const oldest = next.slice(0, -1).reduce((a, b) => ((a.lastOpenedAt ?? 0) <= (b.lastOpenedAt ?? 0) ? a : b));
         next.splice(next.indexOf(oldest), 1);
       }
       save(next);

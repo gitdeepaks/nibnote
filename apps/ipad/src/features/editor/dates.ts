@@ -1,6 +1,10 @@
 import type { LocalDate } from "@nibnote/shared";
 
-const dayFormat = new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric", month: "short" });
+const dayFormat = new Intl.DateTimeFormat([], {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
 
 /** A Daily page's day, like "Mon, 28 Sep", in the user's locale. */
 export function formatLocalDate(date: LocalDate): string {

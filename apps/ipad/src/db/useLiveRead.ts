@@ -20,7 +20,7 @@ export type LiveRead<T> =
 export function useLiveRead<T>(
   tables: readonly LiveTable[],
   read: (repository: Repository) => T,
-  readKey = "",
+  readKey: string,
 ): LiveRead<T> {
   const repository = useRepository();
   const [state, setState] = useState<LiveRead<T>>({ status: "loading" });

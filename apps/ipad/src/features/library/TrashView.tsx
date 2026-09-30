@@ -11,7 +11,11 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 function trashedAt(item: TrashItem): number {
   const deletedAt =
-    item.kind === "folder" ? item.folder.deletedAt : item.kind === "notebook" ? item.notebook.deletedAt : item.page.deletedAt;
+    item.kind === "folder"
+      ? item.folder.deletedAt
+      : item.kind === "notebook"
+        ? item.notebook.deletedAt
+        : item.page.deletedAt;
   return deletedAt ?? 0;
 }
 
@@ -56,26 +60,40 @@ function TrashRow({ item, now }: { readonly item: TrashItem; readonly now: numbe
 }
 
 export function TrashView() {
-  const trash = useLiveRead(["folders", "notebooks", "pages"], (repo) => {
-    const contents = repo.trash.list();
-    const pages: TrashItem[] = contents.pages.map((page) => ({
-      kind: "page",
-      page,
-      notebookTitle: repo.notebooks.get(page.notebookId)?.title ?? "a notebook",
-    }));
-    return {
-      now: Date.now(),
-      sections: [
-        { title: "Folders", data: contents.folders.map((folder): TrashItem => ({ kind: "folder", folder })) },
-        { title: "Notebooks", data: contents.notebooks.map((notebook): TrashItem => ({ kind: "notebook", notebook })) },
-        { title: "Pages", data: pages },
-      ].filter((section) => section.data.length > 0),
-    };
-  });
+  const trash = useLiveRead(
+    ["folders", "notebooks", "pages"],
+    (repo) => {
+      const contents = repo.trash.list();
+      const pages: TrashItem[] = contents.pages.map((page) => ({
+        kind: "page",
+        page,
+        notebookTitle: repo.notebooks.get(page.notebookId)?.title ?? "a notebook",
+      }));
+      return {
+        now: Date.now(),
+        sections: [
+          { title: "Folders", data: contents.folders.map((folder): TrashItem => ({ kind: "folder", folder })) },
+          {
+            title: "Notebooks",
+            data: contents.notebooks.map((notebook): TrashItem => ({ kind: "notebook", notebook })),
+          },
+          { title: "Pages", data: pages },
+        ].filter((section) => section.data.length > 0),
+      };
+    },
+    "",
+  );
 
   if (trash.status === "loading") return <LoadingState />;
   if (trash.status === "error") {
-    return <EmptyState icon="exclamationmark.triangle" title="Couldn't load the trash" message={trash.message} />;
+    return (
+      <EmptyState
+        icon="exclamationmark.triangle"
+        title="Couldn't load the trash"
+        message={trash.message}
+        action={null}
+      />
+    );
   }
   const { sections, now } = trash.value;
   if (sections.length === 0) {
@@ -84,6 +102,7 @@ export function TrashView() {
         icon="trash"
         title="Trash is empty"
         message={`Deleted notebooks, folders and pages stay here for ${String(TRASH_RETENTION_DAYS)} days.`}
+        action={null}
       />
     );
   }

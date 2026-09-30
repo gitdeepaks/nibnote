@@ -10,13 +10,13 @@ const HookInput = z.object({
 const repoRoot = join(import.meta.dirname, "..", "..", "..");
 const packageDirPattern = /^(apps|packages)\/[^/]+$/;
 
-function findPackageDir(filePath: string): string | undefined {
+function findPackageDir(filePath: string): string | null {
   let dir = dirname(filePath);
   while (dir.startsWith(repoRoot) && dir !== repoRoot) {
     if (packageDirPattern.test(relative(repoRoot, dir))) return dir;
     dir = dirname(dir);
   }
-  return undefined;
+  return null;
 }
 
 async function runScript(cwd: string, script: "typecheck" | "lint") {
@@ -40,12 +40,9 @@ const filePath = input.data.tool_input.file_path;
 if (!/\.(ts|tsx)$/.test(filePath)) process.exit(0);
 
 const packageDir = findPackageDir(filePath);
-if (packageDir === undefined) process.exit(0);
+if (packageDir === null) process.exit(0);
 
-const results = await Promise.all([
-  runScript(packageDir, "typecheck"),
-  runScript(packageDir, "lint"),
-]);
+const results = await Promise.all([runScript(packageDir, "typecheck"), runScript(packageDir, "lint")]);
 const failures = results.filter((r) => r.exitCode !== 0);
 if (failures.length === 0) process.exit(0);
 

@@ -53,7 +53,7 @@ export function PageGrid({ pages, currentPageId, actions, onOpenPage, onClose }:
   // Selection only holds pages that still exist (another action may have removed some).
   const chosen = pages.filter((page) => selected.has(page.id)).map((page) => page.id);
   const allChosen = chosen.length === pages.length;
-  const dragged = drag.drag === null ? undefined : pages.find((page) => page.id === drag.drag?.pageId);
+  const dragged = drag.drag === null ? null : (pages.find((page) => page.id === drag.drag?.pageId) ?? null);
 
   const endSelection = () => {
     setSelecting(false);
@@ -175,7 +175,7 @@ export function PageGrid({ pages, currentPageId, actions, onOpenPage, onClose }:
             )}
           />
         )}
-        {dragged !== undefined && (
+        {dragged !== null && (
           <Animated.View
             pointerEvents="none"
             style={{
@@ -263,9 +263,14 @@ function SelectionBar({ count, bottom, onDuplicate, onMove, onTrash }: Selection
           boxShadow: "0 4px 16px rgba(0, 0, 0, 0.18)",
         }}
       >
-        <BarButton icon="plus.square.on.square" label={`Duplicate ${pages}`} onPress={onDuplicate} />
-        <BarButton icon="folder" label={`Move ${pages} to another notebook`} onPress={onMove} />
-        <BarButton icon="trash" label={`Move ${pages} to the trash`} destructive onPress={onTrash} />
+        <BarButton
+          icon="plus.square.on.square"
+          label={`Duplicate ${pages}`}
+          destructive={false}
+          onPress={onDuplicate}
+        />
+        <BarButton icon="folder" label={`Move ${pages} to another notebook`} destructive={false} onPress={onMove} />
+        <BarButton icon="trash" label={`Move ${pages} to the trash`} destructive={true} onPress={onTrash} />
       </View>
     </View>
   );
@@ -274,11 +279,11 @@ function SelectionBar({ count, bottom, onDuplicate, onMove, onTrash }: Selection
 type BarButtonProps = {
   readonly icon: SFSymbol;
   readonly label: string;
-  readonly destructive?: boolean;
+  readonly destructive: boolean;
   readonly onPress: (event: GestureResponderEvent) => void;
 };
 
-function BarButton({ icon, label, destructive = false, onPress }: BarButtonProps) {
+function BarButton({ icon, label, destructive, onPress }: BarButtonProps) {
   return (
     <Pressable
       accessibilityRole="button"

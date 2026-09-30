@@ -5,9 +5,9 @@ import { newNotebookInput, openTestDb, unwrap } from "./helpers";
 
 function notebookWithPages(count: number) {
   const env = openTestDb();
-  const { notebook, firstPage } = unwrap(env.repo.notebooks.create(newNotebookInput()));
+  const { notebook, firstPage } = unwrap(env.repo.notebooks.create(newNotebookInput("DSA")));
   const ids: PageId[] = [firstPage.id];
-  for (let i = 1; i < count; i++) ids.push(unwrap(env.repo.pages.add(notebook.id)).id);
+  for (let i = 1; i < count; i++) ids.push(unwrap(env.repo.pages.add(notebook.id, null)).id);
   const order = () => env.repo.pages.list(notebook.id).map((page) => page.id);
   /** Applies a menu move through the repository, like the editor does. */
   const apply = (pageId: PageId, move: PageMove) => {

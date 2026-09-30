@@ -5,10 +5,7 @@ import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
 
 export const SORT_KEY_MAX_LENGTH = 24;
 
-export function keyBetween(
-  before: string | null,
-  after: string | null,
-): string {
+export function keyBetween(before: string | null, after: string | null): string {
   return generateKeyBetween(before, after);
 }
 
