@@ -42,7 +42,7 @@ type NativeCanvasProps = {
   readonly onPageSwipe: (event: NativeEvent) => void;
 };
 
-const NativePencilCanvas = requireNativeView<NativeCanvasProps>("PencilCanvas");
+const NativePencilCanvas = requireNativeView<NativeCanvasProps>("PencilCanvas", "PencilCanvasView");
 
 export type PencilCanvasRef = {
   readonly undo: () => Promise<void>;
