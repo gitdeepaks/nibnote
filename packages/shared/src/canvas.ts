@@ -15,7 +15,8 @@ export const FileUri = z
   .brand<"FileUri">();
 export type FileUri = z.infer<typeof FileUri>;
 
-const StrokeWidth = z.number().positive().max(100);
+// Stroke and eraser widths in points; the native side clamps to what each PencilKit tool supports
+export const StrokeWidth = z.number().positive().max(100);
 
 export const InkType = z.enum(["pen", "fountainPen", "pencil", "marker", "monoline"]);
 export type InkType = z.infer<typeof InkType>;

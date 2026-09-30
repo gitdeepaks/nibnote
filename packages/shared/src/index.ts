@@ -16,6 +16,7 @@ export {
   PencilPreferredAction,
   SaveResult,
   Sha256,
+  StrokeWidth,
   ThumbnailWrittenEvent,
 } from "./canvas";
 export { FolderId, NotebookId, PageId, TagId } from "./ids";
@@ -37,3 +38,27 @@ export {
   TITLE_MAX_LENGTH,
 } from "./library";
 export { assertNever, err, ok, type Result } from "./result";
+export {
+  afterPencilAction,
+  canvasToolFor,
+  chooseColor,
+  colorName,
+  colorSlotOf,
+  colorTarget,
+  DEFAULT_TOOLBOX,
+  EraserMode,
+  PenInk,
+  selectSlot,
+  setSlotColor,
+  setSlotWidth,
+  StoredToolbox,
+  toggleDrawingPolicy,
+  ToolSlot,
+  type ColorSlot,
+  type EraserSettings,
+  type InkSettings,
+  type PenSettings,
+  type SizedSlot,
+  type Toolbox,
+  type ToolSlots,
+} from "./toolbox";
