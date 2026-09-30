@@ -13,5 +13,6 @@ export const colors = {
   fill: Color.ios.tertiarySystemFill,
   tint: Color.ios.systemBlue,
   destructive: Color.ios.systemRed,
+  warning: Color.ios.systemOrange,
   favourite: Color.ios.systemYellow,
 } as const;
