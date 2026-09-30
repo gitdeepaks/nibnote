@@ -569,7 +569,7 @@ Every syncable table also has `createdAt`, `updatedAt`, `deletedAt` (trash), `se
 - [x] Tabs across the top of the editor for recently open notebooks (M4b)
 - [x] Daily note: one tap opens or creates today's page in a Daily notebook (M4b)
 - [x] Quick Note: one tap creates a page in an Inbox folder (Spotlight and Shortcuts entry points in Phase 7) (M4b)
-- [ ] Signed-out mode is the default: the whole Phase 2 app works with no account
+- [x] Signed-out mode is the default: the whole Phase 2 app works with no account (there is no network code yet; the airplane-mode day ran fully offline)
 
 **Type-safety focus**
 
@@ -626,10 +626,11 @@ Phase 2 is built in five milestones, each its own PR: M1 data layer, M2 library,
 - **Restart survival.** Reordering, trashing and restoring pages all survived a kill and relaunch.
 - **Prettier.** The repo now has `.prettierrc.json` (`printWidth: 120`, matching the existing style), `bun run format` / `format:check`, a pre-commit check and a CI step, so editors that format on save no longer rewrite files. The whole repo was formatted once. The pre-commit hooks also gained the `packages/db` job, which had been missing.
 - **No `undefined` in our TypeScript.** Asked by the owner and added to the Type-safety contract, the ESLint contract and CLAUDE.md. `NotebookPatch` became a discriminated union; `get`, `getLive` and `openingPage` return `null`; `pages.add` takes `afterId: PageId | null`. `openingPage(notebook, requested)` now checks that a requested page belongs to that notebook and is live.
+- **Phase 2 closed on Sep 30, 2026**, with M5 (PR #9) after M1–M4b (PRs #3–#8). Every exit criterion was measured on the iPad; the numbers are with each criterion below.
 
 **Exit criteria**
 
-- [ ] Airplane mode for a full day of real note-taking: zero data loss
+- [x] Airplane mode for a full day of real note-taking: zero data loss (Sep 29–30, 2026, on the Release build: a day and a night in airplane mode with Wi-Fi off, writing in old and new notebooks, the Daily note and Quick Notes, page moves, app kills right after writing and an iPad restart. Diagnostics "Check Files": **All drawings are on disk** (655 pages, 58 with drawings); every stroke was there.)
 - [x] 300-page notebook opens in under 1 s and scrolls the page strip at 120 fps on ProMotion (iPad Pro 11" 3rd gen, iPadOS 27, Release build, Sep 29, 2026: **596 pages open in 160–183 ms**; strip **113–120 fps, 1.3 ms/s hitches** after the offscreen-render fix; grid 105–119 fps, 0.8 ms/s)
 - [x] Delete, restore from trash, reorder pages: all survive app restart (checked on the iPad, Sep 29, 2026)
 
