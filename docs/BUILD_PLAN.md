@@ -658,7 +658,7 @@ Goal: tool switching so fast you never think about it; from the end of this phas
 
 - [ ] Floating, draggable toolbar that docks top, left or right; collapses to a pill while writing
 - [ ] Tool slots: pen, pencil, highlighter, eraser, lasso, each remembering its own colour and width
-- [ ] Three pinned colours per tool, visible without opening any menu
+- [x] Three pinned colours per tool, visible without opening any menu (M1)
 - [ ] Colour picker sheet: presets, custom HEX, recently used (max 8)
 - [ ] Width: three preset sizes per tool plus a fine slider with live stroke preview
 - [ ] Eraser popover: stroke vs pixel, width, "erase highlighter only" toggle (Parking lot if PencilKit can't filter by ink type)
@@ -684,6 +684,19 @@ Goal: tool switching so fast you never think about it; from the end of this phas
 **Tool state model**
 
 Tool state lives in one Zustand store typed as `Record<ToolSlot, CanvasTool>` plus `activeSlot: ToolSlot`. It persists to SQLite `settings` through a Zod schema, so a corrupted value falls back to defaults instead of crashing.
+
+**Phase 3 decisions**
+
+Phase 3 is built in seven milestones, each its own PR with a device check: M1 tool state and toolbar, M2a colour picker, widths and docking, M2b eraser, M3 Apple Pencil and gestures, M4 lasso, M5 spike (shapes and a custom lasso), M6 continuous scrolling.
+
+- **Scope (Sep 30, 2026).** PencilKit's lasso has no public selection API, so resize and recolour need our own lasso. It shares the "replace strokes with generated `PKStroke`s" work with shape snapping, so both are one time-boxed spike in M5; if it fails, resize and recolour go to the Parking lot with shapes. "Erase highlighter only" stays in Phase 3 (M2b) instead of the Parking lot: a custom eraser that reads each stroke's ink type, in stroke mode (remove whole highlighter strokes) and pixel mode (split highlighter strokes along a path sampled every ~1 pt), with one undo step per erase gesture. It must keep up on a 2,000-stroke page, measured with Instruments; if it can't, the numbers go back to the owner for a decision.
+- **M1 (Sep 30, 2026). The toolbox is a pure model in `@nibnote/shared`.** `Toolbox` is `{ active, previous, slots }`, where each slot keeps its own settings (pen: ink, colour, width, three pinned colours, three width presets; pencil and highlighter the same without ink; eraser: mode, width, presets). Rules (`selectSlot`, `chooseColor`, `setSlotWidth`, `canvasToolFor`, `afterPencilAction`) are pure functions with Bun tests. The plan's `Record<ToolSlot, CanvasTool>` became per-slot settings instead, because a `CanvasTool` can't hold pinned colours or presets.
+- **Stored tools never reset wholesale.** `StoredToolbox` gives every slot and field its own `.catch` default, so a corrupt slot resets alone and a field added in a later milestone defaults in without wiping the user's other choices. Every field added later must carry a `.catch`. The toolbox is device-local (`settings` key `toolbox`, no outbox) and saved on every change.
+- **The store is a thin Zustand layer.** `createStore` inside `ToolboxProvider` (under `DatabaseProvider`), no module-level state; components subscribe with selectors through `useToolbox`. Zustand 5.0.15 adds about 1 KB; the production bundle is 3.94 MB after M1 (budget < 4 MB).
+- **The toolbar always shows three colours.** They belong to the active colour tool, or while erasing or selecting, to the colour tool used last; tapping one from the eraser goes straight back to drawing in that colour. The toolbar never changes width when switching tools, so buttons stay where the hand expects them. Each tool button shows its colour as a dot, and VoiceOver names colours from their hue ("Blue pen"), which also covers custom colours later.
+- **Undo and redo moved from the header to the floating toolbar**, next to the hand, and nowhere else.
+- **The Pencil-only switch is part of the toolbox.** In M1's first device test it lived in the editor's state, so leaving a notebook reset it to Pencil-only. It is now `Toolbox.drawingPolicy` (default `pencilOnly`), saved with the tools and kept across notebooks and restarts; a toolbox saved before the field existed keeps everything else. This covers the "toggle persists" part of the Phase 8.5 finger-drawing item; the automatic policy (system "Only Draw with Apple Pencil" setting, switching after the first Pencil touch) stays in Phase 8.5.
+- **Page swipes follow the drawing policy (owner's request, M1).** With "Apple Pencil only", one finger swipes to the next or previous page, as before. When a finger draws, one-finger swipes would fight writing, so two fingers turn the page instead (`PageGeometry.pageSwipeTouches`, tested). Both still turn the page only while the whole page width is visible; zoomed in, the swipe pans.
 
 **Exit criteria**
 
@@ -1124,7 +1137,7 @@ Goal: close every known gap before release, so Phase 9 is only packaging and sub
 - [ ] `[P1]` **Thumbnails under a light trait.** Render inside `UITraitCollection(userInterfaceStyle: .light).performAsCurrent`, so a thumbnail made in dark mode never captures adapted colours.
 - [ ] `[P1]` **Dark paper option.** "Dark paper" sets `paperAppearance = "dark"`; PencilKit adapts the ink on screen while stored colours stay unchanged. Exports always render light (see G).
 - [ ] `[P1]` **`.bak` fallback.** A corrupt main drawing loads from `<pageId>.drawing.bak`; if both fail, `onCanvasError` fires and the page opens empty without overwriting either file.
-- [ ] `[P1]` **Finger drawing when there is no Pencil.** Our custom toolbar hides `PKToolPicker`, so `.default` drawing policy would force Pencil-only. Compute the policy ourselves: read `UIPencilInteraction.prefersPencilOnlyDrawing` (the system "Only Draw with Apple Pencil" setting); if it is false, use `.anyInput`; switch to `.pencilOnly` automatically after the first Pencil touch; a toolbar toggle overrides both and persists.
+- [ ] `[P1]` **Finger drawing when there is no Pencil.** Our custom toolbar hides `PKToolPicker`, so `.default` drawing policy would force Pencil-only. Compute the policy ourselves: read `UIPencilInteraction.prefersPencilOnlyDrawing` (the system "Only Draw with Apple Pencil" setting); if it is false, use `.anyInput`; switch to `.pencilOnly` automatically after the first Pencil touch; a toolbar toggle overrides both and persists. The toggle has persisted since Phase 3 (M1); the automatic policy is still open.
 - [ ] `[P1]` **Pencil Pro features marked honestly.** Squeeze and haptics implemented; record "untested on hardware" until verified on a Pencil Pro device.
 - [ ] `[P1]` **Measured baseline.** Save time (500 strokes), Whiteboard fps (2,000 strokes) and mount/unmount memory recorded under "Phase 1 decisions".
 
