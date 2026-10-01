@@ -50,7 +50,8 @@ final class StrokePreviewTests: XCTestCase {
     }
 
     func testEraserAndLassoDrawNothing() {
-        XCTAssertTrue(StrokePreview.drawing(for: .eraser(.pixel, width: 20), size: size).strokes.isEmpty)
+        let eraser = CanvasToolSpec.eraser(.pixel, width: 20, highlighterOnly: false)
+        XCTAssertTrue(StrokePreview.drawing(for: eraser, size: size).strokes.isEmpty)
         XCTAssertTrue(StrokePreview.drawing(for: .lasso, size: size).strokes.isEmpty)
         XCTAssertTrue(StrokePreview.drawing(for: .ink(.pen, color: blue, width: 3), size: .zero).strokes.isEmpty)
     }

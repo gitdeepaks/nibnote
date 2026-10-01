@@ -7,16 +7,19 @@ enum SyntheticStrokes {
     static let columns = 20
     static let pointsPerStroke = 24
 
-    static func drawing(count: Int, pageSize: CGSize) -> PKDrawing {
+    /// With `mixed`, every other stroke is a highlighter (a translucent marker), for erasing tests.
+    static func drawing(count: Int, pageSize: CGSize, mixed: Bool = false) -> PKDrawing {
         guard count > 0, pageSize.width > 0, pageSize.height > 0 else { return PKDrawing() }
         let rows = (count + columns - 1) / columns
         let cell = CGSize(width: pageSize.width / CGFloat(columns), height: pageSize.height / CGFloat(rows))
         let ink = PKInk(.pen, color: .black)
+        let marker = PKInk(.marker, color: UIColor.systemYellow.withAlphaComponent(0.35))
         let strokes = (0..<count).map { index in
             let origin = CGPoint(
                 x: CGFloat(index % columns) * cell.width,
                 y: CGFloat(index / columns) * cell.height)
-            return PKStroke(ink: ink, path: path(in: CGRect(origin: origin, size: cell)))
+            let highlighter = mixed && index.isMultiple(of: 2)
+            return PKStroke(ink: highlighter ? marker : ink, path: path(in: CGRect(origin: origin, size: cell)))
         }
         return PKDrawing(strokes: strokes)
     }

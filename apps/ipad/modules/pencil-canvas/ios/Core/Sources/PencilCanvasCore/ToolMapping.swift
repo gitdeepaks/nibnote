@@ -20,7 +20,7 @@ enum ToolMapping {
             )
             let range = PKInkingTool.InkType.marker.validWidthRange
             return PKInkingTool(.marker, color: uiColor(translucent), width: clamp(width, to: range))
-        case let .eraser(mode, width):
+        case let .eraser(mode, width, _):
             let eraserType = eraserType(for: mode)
             return PKEraserTool(eraserType, width: clamp(width, to: eraserType.validWidthRange))
         case .lasso:
