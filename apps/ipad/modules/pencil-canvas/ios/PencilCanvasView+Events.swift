@@ -10,6 +10,15 @@ extension PencilCanvasView: PKCanvasViewDelegate {
         scheduleDrawingChangedEvent()
     }
 
+    // Only drawing, erasing and the lasso call these; scrolling and zooming don't.
+    func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
+        emitToolUsage(active: true)
+    }
+
+    func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
+        emitToolUsage(active: false)
+    }
+
     func scrollViewWillBeginZooming(_ scrollView: UIScrollView, with view: UIView?) {
         surface.userWillZoom()
     }
@@ -72,6 +81,13 @@ extension PencilCanvasView {
                 as? PencilCanvasModule
         else { return }
         module.sendEvent(name, record.toDictionary(appContext: appContext))
+    }
+
+    private func emitToolUsage(active: Bool) {
+        let record = ToolUsageRecord()
+        record.pageId = pageId
+        record.active = active
+        onToolUsage(record)
     }
 
     private func emitPencilAction(kind: String, preferred: UIPencilPreferredAction) {

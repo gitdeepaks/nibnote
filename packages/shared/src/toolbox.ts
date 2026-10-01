@@ -26,6 +26,10 @@ export type SizedSlot = ColorSlot | "eraser";
 export const PenInk = z.enum(["pen", "fountainPen", "monoline"]);
 export type PenInk = z.infer<typeof PenInk>;
 
+/** The screen edge the floating toolbar sits on. */
+export const ToolbarDock = z.enum(["bottom", "top", "left", "right"]);
+export type ToolbarDock = z.infer<typeof ToolbarDock>;
+
 export const EraserMode = z.enum(["stroke", "pixel"]);
 export type EraserMode = z.infer<typeof EraserMode>;
 
@@ -68,6 +72,8 @@ export type Toolbox = {
   readonly drawingPolicy: DrawingPolicy;
   /** Colours picked in the colour popover, newest first, at most `MAX_RECENT_COLORS`. */
   readonly recentColors: readonly HexColor[];
+  /** Where the toolbar is docked. */
+  readonly dock: ToolbarDock;
 };
 
 export const MAX_RECENT_COLORS = 8;
@@ -108,6 +114,7 @@ export const DEFAULT_TOOLBOX: Toolbox = {
   slots: DEFAULT_SLOTS,
   drawingPolicy: "pencilOnly",
   recentColors: [],
+  dock: "bottom",
 };
 
 /** The stored toolbox. Parsing never fails; see the note at the top of this file. */
@@ -127,6 +134,7 @@ export const StoredToolbox = z
     // Added after M1 shipped to the device: a toolbox stored without it keeps everything else.
     drawingPolicy: DrawingPolicy.catch(DEFAULT_TOOLBOX.drawingPolicy),
     recentColors: z.array(HexColor).max(MAX_RECENT_COLORS).readonly().catch(DEFAULT_TOOLBOX.recentColors),
+    dock: ToolbarDock.catch(DEFAULT_TOOLBOX.dock),
   })
   .readonly()
   .catch(DEFAULT_TOOLBOX);
@@ -135,6 +143,33 @@ export const StoredToolbox = z
 export function selectSlot(toolbox: Toolbox, slot: ToolSlot): Toolbox {
   if (slot === toolbox.active) return toolbox;
   return { ...toolbox, active: slot, previous: toolbox.active };
+}
+
+/** Docks the toolbar on an edge. */
+export function setDock(toolbox: Toolbox, dock: ToolbarDock): Toolbox {
+  return toolbox.dock === dock ? toolbox : { ...toolbox, dock };
+}
+
+/** Left and right docks stack the toolbar vertically. */
+export function isVerticalDock(dock: ToolbarDock): boolean {
+  return dock === "left" || dock === "right";
+}
+
+/**
+ * The edge a dragged toolbar snaps to: the one closest to where it was let go, inside an area of
+ * `width` × `height`. Ties go to the bottom, then the top, so the toolbar prefers the familiar edges.
+ */
+export function nearestDock(
+  point: { readonly x: number; readonly y: number },
+  area: { readonly width: number; readonly height: number },
+): ToolbarDock {
+  const distances: readonly (readonly [ToolbarDock, number])[] = [
+    ["bottom", area.height - point.y],
+    ["top", point.y],
+    ["left", point.x],
+    ["right", area.width - point.x],
+  ];
+  return distances.reduce((best, candidate) => (candidate[1] < best[1] ? candidate : best))[0];
 }
 
 /** Switches between "only Apple Pencil draws" and "a finger draws too". */

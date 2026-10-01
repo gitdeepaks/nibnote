@@ -34,6 +34,7 @@ import { PageGrid } from "./PageGrid";
 import { PageStrip } from "./PageStrip";
 import { Toolbar } from "../toolbar/Toolbar";
 import { useToolbox } from "../toolbar/ToolboxProvider";
+import { useToolbarCollapse } from "../toolbar/useToolbarCollapse";
 
 /** Missing, trashed or malformed notebook: shown for bad deep links and for notebooks trashed meanwhile. */
 export function NotebookNotFound() {
@@ -157,6 +158,7 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
   const canvasRef = useRef<PencilCanvasRef>(null);
   const toolbox = useToolbox((state) => state.toolbox);
   const toolActions = useToolbox((state) => state.actions);
+  const toolbarCollapse = useToolbarCollapse();
   // A new tool object only when the tools change, so the canvas re-applies it only then.
   const tool = useMemo(() => canvasToolFor(toolbox), [toolbox]);
   const [history, setHistory] = useState({
@@ -370,6 +372,9 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
                 if (next !== null) setNotice({ pageId: event.pageId, message: next });
               }}
               onPageSwipe={handlePageSwipe}
+              onToolUsage={(event) => {
+                if (event.pageId === page.id) toolbarCollapse.toolUsage(event.active);
+              }}
             />
           </Animated.View>
           <Toolbar
@@ -381,6 +386,8 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
             onRedo={() => {
               run("Redo", (canvas) => canvas.redo());
             }}
+            collapsed={toolbarCollapse.collapsed}
+            onExpand={toolbarCollapse.expand}
           />
           <View pointerEvents="box-none" style={{ position: "absolute", top: 12, left: 0, right: 0, gap: 8 }}>
             <Text

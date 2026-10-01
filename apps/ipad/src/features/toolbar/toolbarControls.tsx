@@ -119,10 +119,15 @@ export function SwatchButton({ color, label, hint, selected, size, onPress, onLo
   );
 }
 
-export function ToolbarDivider() {
+/** A hairline between groups: upright in a horizontal toolbar, flat in a vertical one. */
+export function ToolbarDivider({ vertical }: { readonly vertical: boolean }) {
   return (
     <View
-      style={{ width: StyleSheet.hairlineWidth, height: 28, marginHorizontal: 4, backgroundColor: colors.separator }}
+      style={
+        vertical
+          ? { height: StyleSheet.hairlineWidth, width: 28, marginVertical: 4, backgroundColor: colors.separator }
+          : { width: StyleSheet.hairlineWidth, height: 28, marginHorizontal: 4, backgroundColor: colors.separator }
+      }
     />
   );
 }

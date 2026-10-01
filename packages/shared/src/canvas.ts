@@ -110,6 +110,15 @@ export const PencilActionEvent = z
   .readonly();
 export type PencilActionEvent = z.infer<typeof PencilActionEvent>;
 
+// A tool started or stopped touching the page (a stroke, an erase, a lasso), never a scroll or zoom
+export const ToolUsageEvent = z
+  .object({
+    pageId: PageId,
+    active: z.boolean(),
+  })
+  .readonly();
+export type ToolUsageEvent = z.infer<typeof ToolUsageEvent>;
+
 // A one-finger swipe on the page: left turns to the next page, right to the previous one
 export const PageSwipeEvent = z
   .object({
