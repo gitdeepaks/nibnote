@@ -4,6 +4,7 @@ import {
   chooseColor,
   selectSlot,
   selectWidthPreset,
+  setDock,
   setPenInk,
   setPinnedColor,
   setWidthPreset,
@@ -13,6 +14,7 @@ import {
   type PenInk,
   type PencilPreferredAction,
   type Toolbox,
+  type ToolbarDock,
   type ToolSlot,
   type TrioIndex,
 } from "@nibnote/shared";
@@ -36,6 +38,7 @@ export type ToolboxActions = {
   readonly setPenInk: (ink: PenInk) => void;
   readonly applyPencilAction: (action: PencilPreferredAction) => void;
   readonly toggleDrawingPolicy: () => void;
+  readonly setDock: (dock: ToolbarDock) => void;
   /** Writes a pending change now (the app is going to the background). */
   readonly flush: () => void;
 };
@@ -107,6 +110,9 @@ export function createToolboxStore(storage: ToolboxStorage): StoreApi<ToolboxSta
         },
         toggleDrawingPolicy: () => {
           update(toggleDrawingPolicy);
+        },
+        setDock: (dock) => {
+          update((toolbox) => setDock(toolbox, dock));
         },
         flush: () => {
           if (pending.timer === null) return;
