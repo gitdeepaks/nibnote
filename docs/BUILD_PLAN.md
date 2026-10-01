@@ -656,7 +656,7 @@ Goal: tool switching so fast you never think about it; from the end of this phas
 
 **Toolbar and tools**
 
-- [ ] Floating, draggable toolbar that docks top, left or right; collapses to a pill while writing
+- [x] Floating, draggable toolbar that docks top, left or right; collapses to a pill while writing (M2b: all four edges, bottom by default)
 - [ ] Tool slots: pen, pencil, highlighter, eraser, lasso, each remembering its own colour and width
 - [x] Three pinned colours per tool, visible without opening any menu (M1)
 - [x] Colour picker sheet: presets, custom HEX, recently used (max 8) (M2a: a popover with swatches, a colour-code keypad and the system picker)
@@ -707,6 +707,12 @@ Phase 3 is built in eight milestones, each its own PR with a device check: M1 to
 - **Recent colours** are kept only for colours picked in the popover, not for taps on pins. The system picker reports every colour while dragging, so only the last one joins the list, when the popover closes. Tool saves are debounced by 300 ms and flushed when the app leaves the foreground.
 - **Swatches got a neutral edge and a gapped selection ring**, because a black pin on the dark toolbar was invisible (seen in the M2a spike screenshot).
 - **Budget:** the production bundle is 3.98 MB after M2a (3,975,541 bytes; budget < 4 MB), with about 24 KB left before M2b. The remaining Phase 3 milestones must measure it, and the budget needs a decision before it runs out.
+- **M2b (Oct 1, 2026). The toolbar docks on any edge.** A grip at its start drags it (only the grip, so buttons never move the toolbar by accident); on release it snaps to the nearest edge (`nearestDock`, tested; ties prefer the bottom) and fades in there. Left and right docks stack it vertically, and popovers open away from the edge. The dock is a toolbox field with its own fallback, so an M2a toolbox loads unchanged. VoiceOver gets "Move to …" actions on the grip, since a drag isn't accessible. The top and side docks keep 52 pt clear for the page counter.
+- **The pill.** A new canvas event, `onToolUsage` (PencilKit's begin/end-using-tool: strokes, erasing and the lasso, never scrolling or zooming), shrinks the toolbar to a pill with the current tool and colour; it comes back 1.5 s after the last stroke, or at once on a tap. It stays off while VoiceOver runs (a control moving under the user's focus would be lost) and never collapses with a popover open. Reduce Motion fades instead of scaling. Animations move only transform and opacity on the native driver; only the drag itself follows the finger from JavaScript.
+- **Only the left edge closes a notebook.** Notebooks open with the zoom transition (`Link.AppleZoom`), which lets a drag down anywhere on the screen dismiss it; on the device, dragging the toolbar's grip downward closed the notebook. `usePreventZoomTransitionDismissal` limits the dismissal gesture to a 24 pt strip at the left edge, so the back swipe works as before and nothing else on the page can close it.
+- **VoiceOver users can write.** VoiceOver claims every touch for navigation, so with it on nothing reached the canvas (found while testing the pill). The canvas is now one accessibility element ("Writing area") with the `allowsDirectInteraction` trait, which passes touches on the page straight to PencilKit, as Apple intends for drawing surfaces.
+- **Narrow windows.** When the window can't fit the full toolbar (about 620 pt along its axis), the three colours fold into one swatch showing the current colour, which opens the colour options.
+- **Budget after M2b:** 3.99 MB (3,988,218 bytes). Per the owner's decision (Sep 30), the 4 MB budget is revisited in Phase 8 with the shipped (source-mapped) size and the cold-start numbers, not enforced per milestone.
 
 **Exit criteria**
 
