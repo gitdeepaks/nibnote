@@ -18,8 +18,11 @@ final class CanvasToolSpecTests: XCTestCase {
         XCTAssertEqual(
             try CanvasToolSpec.parse(highlighter).get(),
             .highlighter(color: try XCTUnwrap(RGBAColor(hex: "#FFD60A")), width: 18))
-        XCTAssertEqual(try CanvasToolSpec.parse(eraser).get(), .eraser(.pixel, width: 12))
+        XCTAssertEqual(try CanvasToolSpec.parse(eraser).get(), .eraser(.pixel, width: 12, highlighterOnly: false))
         XCTAssertEqual(try CanvasToolSpec.parse(lasso).get(), .lasso)
+        let highlighterOnly = RawCanvasTool(kind: "eraser", width: 24, mode: "stroke", highlighterOnly: true)
+        XCTAssertEqual(
+            try CanvasToolSpec.parse(highlighterOnly).get(), .eraser(.stroke, width: 24, highlighterOnly: true))
     }
 
     func testRejectsInvalidTools() {
@@ -73,8 +76,10 @@ final class ToolMappingTests: XCTestCase {
     }
 
     func testMapsEraserModes() throws {
-        let stroke = try XCTUnwrap(ToolMapping.pkTool(for: .eraser(.stroke, width: 10)) as? PKEraserTool)
-        let pixel = try XCTUnwrap(ToolMapping.pkTool(for: .eraser(.pixel, width: 10)) as? PKEraserTool)
+        let strokeSpec = CanvasToolSpec.eraser(.stroke, width: 10, highlighterOnly: false)
+        let stroke = try XCTUnwrap(ToolMapping.pkTool(for: strokeSpec) as? PKEraserTool)
+        let pixelSpec = CanvasToolSpec.eraser(.pixel, width: 10, highlighterOnly: false)
+        let pixel = try XCTUnwrap(ToolMapping.pkTool(for: pixelSpec) as? PKEraserTool)
         XCTAssertEqual(stroke.eraserType, .vector)
         XCTAssertEqual(pixel.eraserType, .fixedWidthBitmap)
         // Widths are clamped to PencilKit's range for the eraser type (the pixel eraser starts around 16 pt).

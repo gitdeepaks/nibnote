@@ -25,6 +25,7 @@ extension PencilCanvasView {
         pageState = .loading
         hasUnsavedChanges = false
         autosave.cancel()
+        highlighterEraser.cancel()
         canvasView.drawingGestureRecognizer.isEnabled = false
         replaceDrawing(with: PKDrawing())
         let store = store
@@ -46,7 +47,7 @@ extension PencilCanvasView {
         case let .success(outcome):
             replaceDrawing(with: outcome.drawing)
             pageState = .ready
-            canvasView.drawingGestureRecognizer.isEnabled = true
+            updateDrawingGesture()
             if outcome.recoveredFromBackup {
                 emitError(
                     code: "recoveredFromBackup", message: "The page file was damaged; loaded the last good version")
@@ -183,10 +184,11 @@ extension PencilCanvasView {
 
     /// Canvas Lab only: fills the page with synthetic strokes for the performance exit criteria.
     /// Counts as a user edit, so it is autosaved like real ink.
-    func debugFillStrokes(count: Int) {
+    func debugFillStrokes(count: Int, mixed: Bool) {
         #if DEBUG
         guard pageState == .ready else { return }
-        canvasView.drawing = SyntheticStrokes.drawing(count: min(max(count, 0), 5000), pageSize: surface.pageSize)
+        canvasView.drawing = SyntheticStrokes.drawing(
+            count: min(max(count, 0), 5000), pageSize: surface.pageSize, mixed: mixed)
         #endif
     }
 }

@@ -24,7 +24,7 @@ type NativeCanvasMethods = {
   readonly undo: () => Promise<void>;
   readonly redo: () => Promise<void>;
   readonly save: () => Promise<object>;
-  readonly debugFillStrokes: (count: number) => Promise<void>;
+  readonly debugFillStrokes: (count: number, mixed: boolean) => Promise<void>;
 };
 
 type NativeCanvasProps = {
@@ -50,8 +50,8 @@ export type PencilCanvasRef = {
   readonly undo: () => Promise<void>;
   readonly redo: () => Promise<void>;
   readonly save: () => Promise<SaveResult>;
-  /** Canvas Lab only: fills the page with synthetic strokes. A no-op in release builds. */
-  readonly debugFillStrokes: (count: number) => Promise<void>;
+  /** Development only: fills the page with synthetic strokes (`mixed`: half are highlighters). */
+  readonly debugFillStrokes: (count: number, mixed: boolean) => Promise<void>;
 };
 
 export type PencilCanvasProps = {
@@ -113,7 +113,7 @@ export function PencilCanvas({
       undo: () => native().undo(),
       redo: () => native().redo(),
       save: async () => SaveResult.parse(await native().save()),
-      debugFillStrokes: (count) => native().debugFillStrokes(count),
+      debugFillStrokes: (count, mixed) => native().debugFillStrokes(count, mixed),
     };
   }, []);
 

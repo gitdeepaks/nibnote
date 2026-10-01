@@ -9,9 +9,11 @@ struct ToolRecord: Record {
     @Field var colorHex: String?
     @Field var width: Double?
     @Field var mode: String?
+    @Field var highlighterOnly: Bool?
 
     var raw: RawCanvasTool {
-        RawCanvasTool(kind: kind, ink: ink, colorHex: colorHex, width: width, mode: mode)
+        RawCanvasTool(
+            kind: kind, ink: ink, colorHex: colorHex, width: width, mode: mode, highlighterOnly: highlighterOnly)
     }
 }
 

@@ -2,14 +2,19 @@ import {
   addRecentColor,
   afterPencilAction,
   chooseColor,
+  selectEraserPreset,
   selectSlot,
   selectWidthPreset,
   setDock,
+  setEraserMode,
+  setEraserPreset,
   setPenInk,
   setPinnedColor,
   setWidthPreset,
   toggleDrawingPolicy,
+  toggleHighlighterOnly,
   type ColorSlot,
+  type EraserMode,
   type HexColor,
   type PenInk,
   type PencilPreferredAction,
@@ -39,6 +44,10 @@ export type ToolboxActions = {
   readonly applyPencilAction: (action: PencilPreferredAction) => void;
   readonly toggleDrawingPolicy: () => void;
   readonly setDock: (dock: ToolbarDock) => void;
+  readonly setEraserMode: (mode: EraserMode) => void;
+  readonly toggleHighlighterOnly: () => void;
+  readonly selectEraserPreset: (index: TrioIndex) => void;
+  readonly setEraserPreset: (index: TrioIndex, width: number) => void;
   /** Writes a pending change now (the app is going to the background). */
   readonly flush: () => void;
 };
@@ -113,6 +122,18 @@ export function createToolboxStore(storage: ToolboxStorage): StoreApi<ToolboxSta
         },
         setDock: (dock) => {
           update((toolbox) => setDock(toolbox, dock));
+        },
+        setEraserMode: (mode) => {
+          update((toolbox) => setEraserMode(toolbox, mode));
+        },
+        toggleHighlighterOnly: () => {
+          update(toggleHighlighterOnly);
+        },
+        selectEraserPreset: (index) => {
+          update((toolbox) => selectEraserPreset(toolbox, index));
+        },
+        setEraserPreset: (index, width) => {
+          update((toolbox) => setEraserPreset(toolbox, index, width));
         },
         flush: () => {
           if (pending.timer === null) return;

@@ -4,6 +4,8 @@ import UIKit
 
 extension PencilCanvasView: PKCanvasViewDelegate {
     func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+        drawingVersion += 1
+        highlighterEraser.drawingDidChange()
         guard !isReplacingDrawing, pageState == .ready else { return }
         hasUnsavedChanges = true
         autosave.changeHappened()
@@ -83,7 +85,7 @@ extension PencilCanvasView {
         module.sendEvent(name, record.toDictionary(appContext: appContext))
     }
 
-    private func emitToolUsage(active: Bool) {
+    func emitToolUsage(active: Bool) {
         let record = ToolUsageRecord()
         record.pageId = pageId
         record.active = active

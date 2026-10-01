@@ -24,6 +24,12 @@ export function widthRange(ink: InkType | "marker"): WidthRange {
   }
 }
 
+/**
+ * The pixel eraser's widths (`PKEraserTool.EraserType.fixedWidthBitmap`, 16.4–80.4 pt on the iOS 27
+ * SDK). The stroke eraser has no width in PencilKit: it removes whatever stroke it touches.
+ */
+export const ERASER_WIDTH_RANGE: WidthRange = { min: 16.4, max: 80 };
+
 /** Clamps a width into `range` and rounds it to 0.1 pt, so a preset and the width compare equal. */
 export function clampWidth(width: number, range: WidthRange): number {
   const clamped = Math.min(range.max, Math.max(range.min, width));

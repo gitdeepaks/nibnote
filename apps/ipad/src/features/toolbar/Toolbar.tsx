@@ -16,6 +16,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { colors } from "../../theme/colors";
 import { AnchoredPopover, type PopoverSide } from "./AnchoredPopover";
 import { ColorOptions } from "./ColorOptions";
+import { EraserOptions } from "./EraserOptions";
 import { BUTTON, SwatchButton, ToolbarButton, ToolbarDivider } from "./toolbarControls";
 import { ToolbarDock } from "./ToolbarDock";
 import { useToolbox } from "./ToolboxProvider";
@@ -65,6 +66,7 @@ const POPOVER_SIDES: Readonly<Record<Dock, PopoverSide>> = {
 type OpenPopover =
   | { readonly kind: "tool"; readonly slot: ColorSlot }
   | { readonly kind: "color"; readonly slot: ColorSlot; readonly index: TrioIndex }
+  | { readonly kind: "eraser" }
   | null;
 
 type ToolbarProps = {
@@ -189,20 +191,44 @@ export function Toolbar({ canUndo, canRedo, onUndo, onRedo, collapsed, onExpand 
       {SLOTS.map((item) => {
         const colorSlot = colorSlotOf(item.slot);
         const selected = toolbox.active === item.slot;
+        const isEraser = item.slot === "eraser";
+        // "Highlighter only" shows as the highlighter's colour on the eraser.
+        const highlighterOnly = isEraser && toolbox.slots.eraser.highlighterOnly;
         const button = (
           <ToolbarButton
             icon={item.icon}
-            label={item.label}
-            hint={selected && colorSlot !== null ? "Shows width options" : null}
+            label={highlighterOnly ? "Eraser, highlighter only" : item.label}
+            hint={selected && (colorSlot !== null || isEraser) ? "Shows options" : null}
             selected={selected}
             disabled={false}
-            dot={colorSlot === null ? null : toolbox.slots[colorSlot].color}
+            dot={
+              colorSlot !== null
+                ? toolbox.slots[colorSlot].color
+                : highlighterOnly
+                  ? toolbox.slots.highlighter.color
+                  : null
+            }
             onPress={() => {
               if (selected && colorSlot !== null) setOpen({ kind: "tool", slot: colorSlot });
+              else if (selected && isEraser) setOpen({ kind: "eraser" });
               else actions.selectSlot(item.slot);
             }}
           />
         );
+        if (isEraser) {
+          return (
+            <AnchoredPopover
+              key={item.slot}
+              open={open?.kind === "eraser"}
+              onOpenChange={(next) => {
+                if (!next) close();
+              }}
+              side={side}
+              anchor={button}
+              content={<EraserOptions />}
+            />
+          );
+        }
         if (colorSlot === null) return <View key={item.slot}>{button}</View>;
         return (
           <AnchoredPopover

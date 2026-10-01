@@ -45,7 +45,8 @@ struct RGBAColor: Equatable, Sendable {
 enum CanvasToolSpec: Equatable, Sendable {
     case ink(InkKind, color: RGBAColor, width: CGFloat)
     case highlighter(color: RGBAColor, width: CGFloat)
-    case eraser(EraserMode, width: CGFloat)
+    /// `highlighterOnly` erases only highlighter strokes, with Nibnote's own eraser.
+    case eraser(EraserMode, width: CGFloat, highlighterOnly: Bool)
     case lasso
 }
 
@@ -56,6 +57,7 @@ struct RawCanvasTool: Sendable {
     var colorHex: String?
     var width: Double?
     var mode: String?
+    var highlighterOnly: Bool?
 }
 
 enum CanvasToolSpecError: Error, Equatable, Sendable {
@@ -77,7 +79,7 @@ extension CanvasToolSpec {
             guard let mode = raw.mode.flatMap(EraserMode.init(rawValue:)) else {
                 return .failure(.invalidField("mode"))
             }
-            return width(raw).map { .eraser(mode, width: $0) }
+            return width(raw).map { .eraser(mode, width: $0, highlighterOnly: raw.highlighterOnly ?? false) }
         case "lasso":
             return .success(.lasso)
         default:

@@ -42,6 +42,7 @@ export {
   clampWidth,
   colorName,
   contrastRatio,
+  ERASER_WIDTH_RANGE,
   HIGHLIGHTER_PRESETS,
   INK_PRESETS,
   inkVisibility,
@@ -54,6 +55,7 @@ export {
 } from "./ink";
 export { assertNever, err, ok, type Result } from "./result";
 export {
+  activeEraserPreset,
   activePreset,
   addRecentColor,
   afterPencilAction,
@@ -70,9 +72,12 @@ export {
   PenInk,
   nearestDock,
   rememberColor,
+  selectEraserPreset,
   selectSlot,
   selectWidthPreset,
   setDock,
+  setEraserMode,
+  setEraserPreset,
   setPenInk,
   setPinnedColor,
   setSlotColor,
@@ -81,6 +86,7 @@ export {
   slotWidthRange,
   StoredToolbox,
   toggleDrawingPolicy,
+  toggleHighlighterOnly,
   ToolbarDock,
   ToolSlot,
   type ColorSlot,

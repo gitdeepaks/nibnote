@@ -307,12 +307,22 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
                   key={count}
                   icon="scribble"
                   onPress={() => {
-                    run("Fill strokes", (canvas) => canvas.debugFillStrokes(count));
+                    run("Fill strokes", (canvas) => canvas.debugFillStrokes(count, false));
                   }}
                 >
                   {`Fill ${String(count)} strokes`}
                 </Stack.Toolbar.MenuAction>
               ))}
+            {__DEV__ && (
+              <Stack.Toolbar.MenuAction
+                icon="highlighter"
+                onPress={() => {
+                  run("Fill strokes", (canvas) => canvas.debugFillStrokes(2000, true));
+                }}
+              >
+                Fill 2000 strokes, half highlighter
+              </Stack.Toolbar.MenuAction>
+            )}
             <Stack.Toolbar.MenuAction
               icon="doc.on.doc"
               onPress={() => {
