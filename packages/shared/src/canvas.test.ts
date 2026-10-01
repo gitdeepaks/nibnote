@@ -47,8 +47,8 @@ describe("CanvasTool", () => {
     const tools = [
       { kind: "ink", ink: "fountainPen", colorHex: "#1C1C1E", width: 3 },
       { kind: "highlighter", colorHex: "#FFD60A", width: 18 },
-      { kind: "eraser", mode: "pixel", width: 12 },
-      { kind: "eraser", mode: "stroke", width: 12 },
+      { kind: "eraser", mode: "pixel", width: 12, highlighterOnly: false },
+      { kind: "eraser", mode: "stroke", width: 12, highlighterOnly: true },
       { kind: "lasso" },
     ];
     for (const tool of tools) {
@@ -62,8 +62,9 @@ describe("CanvasTool", () => {
       { kind: "ink", ink: "pen", colorHex: "black", width: 3 },
       { kind: "ink", ink: "pen", colorHex: "#1C1C1E", width: 0 },
       { kind: "highlighter", colorHex: "#FFD60A", width: 101 },
-      { kind: "eraser", mode: "soft", width: 12 },
-      { kind: "eraser", width: 12 },
+      { kind: "eraser", mode: "soft", width: 12, highlighterOnly: false },
+      { kind: "eraser", width: 12, highlighterOnly: false },
+      { kind: "eraser", mode: "pixel", width: 12 },
       { kind: "brush" },
     ];
     for (const tool of tools) {

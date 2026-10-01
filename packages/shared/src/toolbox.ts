@@ -7,7 +7,7 @@ import {
   type InkType,
   type PencilPreferredAction,
 } from "./canvas";
-import { clampWidth, sameColor, widthRange, type WidthRange } from "./ink";
+import { clampWidth, ERASER_WIDTH_RANGE, sameColor, widthRange, type WidthRange } from "./ink";
 
 // The editor's tools: five slots, each remembering its own settings, persisted on the device.
 // Reading a stored toolbox never fails: a bad slot falls back to its default on its own, and a
@@ -49,6 +49,8 @@ const EraserSettings = z
     mode: EraserMode,
     width: StrokeWidth,
     widthPresets: three(StrokeWidth),
+    // Added in M2c: a toolbox saved before it keeps its eraser settings.
+    highlighterOnly: z.boolean().catch(false),
   })
   .readonly();
 
@@ -104,8 +106,8 @@ const DEFAULT_SLOTS: ToolSlots = {
     pinnedColors: [hex("#FFD60A"), hex("#34C759"), hex("#FF6FB5")],
     widthPresets: [12, 18, 28],
   },
-  // PencilKit's pixel eraser is at least about 16 pt wide, so the presets start there.
-  eraser: { mode: "stroke", width: 24, widthPresets: [16, 24, 40] },
+  // PencilKit's pixel eraser is at least 16.4 pt wide, so the presets start there.
+  eraser: { mode: "stroke", width: 24, widthPresets: [16.4, 24, 40], highlighterOnly: false },
 };
 
 export const DEFAULT_TOOLBOX: Toolbox = {
@@ -256,7 +258,12 @@ export function canvasToolFor(toolbox: Toolbox): CanvasTool {
         width: effectiveWidth(toolbox, "highlighter"),
       };
     case "eraser":
-      return { kind: "eraser", mode: slots.eraser.mode, width: slots.eraser.width };
+      return {
+        kind: "eraser",
+        mode: slots.eraser.mode,
+        width: clampWidth(slots.eraser.width, ERASER_WIDTH_RANGE),
+        highlighterOnly: slots.eraser.highlighterOnly,
+      };
     case "lasso":
       return { kind: "lasso" };
   }
@@ -284,6 +291,48 @@ export function afterPencilAction(toolbox: Toolbox, action: PencilPreferredActio
 
 function withSlots(toolbox: Toolbox, slots: ToolSlots): Toolbox {
   return { ...toolbox, slots };
+}
+
+/** Switches the eraser between removing whole strokes and erasing what it passes over. */
+export function setEraserMode(toolbox: Toolbox, mode: EraserMode): Toolbox {
+  return toolbox.slots.eraser.mode === mode ? toolbox : updateEraser(toolbox, { ...toolbox.slots.eraser, mode });
+}
+
+/** Turns "erase highlighter only" on or off. */
+export function toggleHighlighterOnly(toolbox: Toolbox): Toolbox {
+  const eraser = toolbox.slots.eraser;
+  return updateEraser(toolbox, { ...eraser, highlighterOnly: !eraser.highlighterOnly });
+}
+
+/** The eraser preset in use, or null after a custom width. */
+export function activeEraserPreset(toolbox: Toolbox): TrioIndex | null {
+  const eraser = toolbox.slots.eraser;
+  const width = clampWidth(eraser.width, ERASER_WIDTH_RANGE);
+  const index = eraser.widthPresets.findIndex((preset) => clampWidth(preset, ERASER_WIDTH_RANGE) === width);
+  return index === 0 || index === 1 || index === 2 ? index : null;
+}
+
+/** Erases with one of the eraser's width presets. */
+export function selectEraserPreset(toolbox: Toolbox, index: TrioIndex): Toolbox {
+  const eraser = toolbox.slots.eraser;
+  const width = eraser.widthPresets[index];
+  return eraser.width === width ? toolbox : updateEraser(toolbox, { ...eraser, width });
+}
+
+/** Changes one eraser preset (from the slider) and erases with it, clamped to the pixel eraser's range. */
+export function setEraserPreset(toolbox: Toolbox, index: TrioIndex, width: number): Toolbox {
+  if (!Number.isFinite(width)) return toolbox;
+  const eraser = toolbox.slots.eraser;
+  const clamped = clampWidth(width, ERASER_WIDTH_RANGE);
+  return updateEraser(toolbox, {
+    ...eraser,
+    width: clamped,
+    widthPresets: replaceAt(eraser.widthPresets, index, clamped),
+  });
+}
+
+function updateEraser(toolbox: Toolbox, eraser: EraserSettings): Toolbox {
+  return withSlots(toolbox, { ...toolbox.slots, eraser });
 }
 
 /** The PencilKit ink a colour slot draws with. */

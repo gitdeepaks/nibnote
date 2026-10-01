@@ -42,6 +42,8 @@ export const CanvasTool = z.discriminatedUnion("kind", [
       kind: z.literal("eraser"),
       mode: z.enum(["stroke", "pixel"]),
       width: StrokeWidth,
+      /** Erase only highlighter strokes (Nibnote's own eraser; PencilKit's can't tell inks apart). */
+      highlighterOnly: z.boolean(),
     })
     .readonly(),
   z.object({ kind: z.literal("lasso") }).readonly(),

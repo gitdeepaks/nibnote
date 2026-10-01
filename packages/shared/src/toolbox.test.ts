@@ -3,6 +3,7 @@ import {
   afterPencilAction,
   CanvasTool,
   canvasToolFor,
+  activeEraserPreset,
   activePreset,
   addRecentColor,
   chooseColor,
@@ -15,9 +16,12 @@ import {
   nearestDock,
   rememberColor,
   PencilPreferredAction,
+  selectEraserPreset,
   selectSlot,
   selectWidthPreset,
   setDock,
+  setEraserMode,
+  setEraserPreset,
   setPenInk,
   setPinnedColor,
   setSlotColor,
@@ -25,6 +29,7 @@ import {
   setWidthPreset,
   StoredToolbox,
   toggleDrawingPolicy,
+  toggleHighlighterOnly,
   ToolbarDock,
   ToolSlot,
   type Toolbox,
@@ -70,7 +75,7 @@ describe("canvasToolFor", () => {
     expect(at("pen")).toEqual({ kind: "ink", ink: "pen", colorHex: HexColor.parse("#1C1C1E"), width: 3 });
     expect(at("pencil")).toEqual({ kind: "ink", ink: "pencil", colorHex: HexColor.parse("#3A3A3C"), width: 4 });
     expect(at("highlighter")).toEqual({ kind: "highlighter", colorHex: HexColor.parse("#FFD60A"), width: 18 });
-    expect(at("eraser")).toEqual({ kind: "eraser", mode: "stroke", width: 24 });
+    expect(at("eraser")).toEqual({ kind: "eraser", mode: "stroke", width: 24, highlighterOnly: false });
     expect(at("lasso")).toEqual({ kind: "lasso" });
   });
 
@@ -237,7 +242,7 @@ describe("StoredToolbox", () => {
     const toolbox = stored({
       ...DEFAULT_TOOLBOX,
       handedness: "left",
-      slots: { ...DEFAULT_TOOLBOX.slots, eraser: { ...DEFAULT_TOOLBOX.slots.eraser, highlighterOnly: true } },
+      slots: { ...DEFAULT_TOOLBOX.slots, eraser: { ...DEFAULT_TOOLBOX.slots.eraser, softEdge: true } },
     });
     expect(toolbox).toEqual(DEFAULT_TOOLBOX);
   });
@@ -383,5 +388,53 @@ describe("toolbar dock", () => {
 
   test("left and right are vertical", () => {
     expect(ToolbarDock.options.filter(isVerticalDock)).toEqual(["left", "right"]);
+  });
+});
+
+describe("eraser", () => {
+  const erasing = selectSlot(DEFAULT_TOOLBOX, "eraser");
+
+  test("starts as a stroke eraser for every ink, with presets inside PencilKit's pixel range", () => {
+    expect(canvasToolFor(erasing)).toEqual({ kind: "eraser", mode: "stroke", width: 24, highlighterOnly: false });
+    expect(DEFAULT_TOOLBOX.slots.eraser.widthPresets).toEqual([16.4, 24, 40]);
+    expect(activeEraserPreset(erasing)).toBe(1);
+  });
+
+  test("mode and highlighter-only switch and survive storing", () => {
+    const toolbox = toggleHighlighterOnly(setEraserMode(erasing, "pixel"));
+    expect(canvasToolFor(toolbox)).toMatchObject({ mode: "pixel", highlighterOnly: true });
+    expect(stored(toolbox).slots.eraser).toEqual(toolbox.slots.eraser);
+    expect(toggleHighlighterOnly(toolbox).slots.eraser.highlighterOnly).toBe(false);
+    expect(setEraserMode(toolbox, "pixel")).toBe(toolbox);
+  });
+
+  test("the slider edits the selected preset inside 16.4–80 pt, and presets select", () => {
+    const wide = setEraserPreset(erasing, 2, 120);
+    expect(wide.slots.eraser.widthPresets).toEqual([16.4, 24, 80]);
+    expect(activeEraserPreset(wide)).toBe(2);
+    expect(canvasToolFor(selectEraserPreset(wide, 0))).toMatchObject({ width: 16.4 });
+    expect(setEraserPreset(erasing, 0, Number.NaN)).toBe(erasing);
+  });
+
+  test("an M1 preset below the pixel eraser's minimum erases at the minimum", () => {
+    const fromM1 = stored({
+      ...erasing,
+      slots: { ...erasing.slots, eraser: { mode: "pixel", width: 16, widthPresets: [16, 24, 40] } },
+    });
+    expect(canvasToolFor(fromM1)).toMatchObject({ width: 16.4, highlighterOnly: false });
+    expect(activeEraserPreset(fromM1)).toBe(0);
+  });
+
+  test("an eraser saved before highlighter-only existed keeps its mode and width", () => {
+    const old = stored({
+      ...erasing,
+      slots: { ...erasing.slots, eraser: { mode: "pixel", width: 40, widthPresets: [16.4, 24, 40] } },
+    });
+    expect(old.slots.eraser).toEqual({
+      mode: "pixel",
+      width: 40,
+      widthPresets: [16.4, 24, 40],
+      highlighterOnly: false,
+    });
   });
 });
