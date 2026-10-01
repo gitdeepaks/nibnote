@@ -661,7 +661,7 @@ Goal: tool switching so fast you never think about it; from the end of this phas
 - [x] Three pinned colours per tool, visible without opening any menu (M1)
 - [x] Colour picker sheet: presets, custom HEX, recently used (max 8) (M2a: a popover with swatches, a colour-code keypad and the system picker)
 - [x] Width: three preset sizes per tool plus a fine slider with live stroke preview (M2a)
-- [ ] Eraser popover: stroke vs pixel, width, "erase highlighter only" toggle (Parking lot if PencilKit can't filter by ink type)
+- [x] Eraser popover: stroke vs pixel, width, "erase highlighter only" toggle (Parking lot if PencilKit can't filter by ink type) (M2c: Nibnote's own highlighter-only eraser; width for Pixel only, since PencilKit's stroke eraser has none)
 - [ ] Undo / redo buttons plus two-finger tap = undo, three-finger tap = redo
 
 **Apple Pencil**
@@ -713,6 +713,16 @@ Phase 3 is built in eight milestones, each its own PR with a device check: M1 to
 - **VoiceOver users can write.** VoiceOver claims every touch for navigation, so with it on nothing reached the canvas (found while testing the pill). The canvas is now one accessibility element ("Writing area") with the `allowsDirectInteraction` trait, which passes touches on the page straight to PencilKit, as Apple intends for drawing surfaces.
 - **Narrow windows.** When the window can't fit the full toolbar (about 620 pt along its axis), the three colours fold into one swatch showing the current colour, which opens the colour options.
 - **Budget after M2b:** 3.99 MB (3,988,218 bytes). Per the owner's decision (Sep 30), the 4 MB budget is revisited in Phase 8 with the shipped (source-mapped) size and the cold-start numbers, not enforced per milestone.
+- **M2c (Oct 1, 2026). The eraser popover** (tap the selected eraser): Stroke or Pixel, and "Erase highlighter only". All SwiftUI, since its parts appear with the mode. PencilKit's stroke eraser has no width (`validWidthRange` 0…0, measured), so widths show only for Pixel: 16.4–80 pt, three presets and a slider. Eraser presets moved to 16.4/24/40 (M1's 16 was below PencilKit's minimum). With highlighter-only on, the eraser button shows the highlighter's colour as its dot.
+- **Highlighter-only erasing is Nibnote's own eraser**, since PencilKit's can't tell inks apart. While it is set, PencilKit's drawing gesture is off and a touch-down recognizer reads the eraser (Pencil only, or fingers too when they draw; scrolling then takes only fingers, or two of them). Only marker strokes are touched, never pen or pencil.
+  - Stroke mode removes each highlighter stroke the eraser reaches (6 pt on screen, like PencilKit's).
+  - Pixel mode cuts the eraser's path out of the stroke's `mask` with `CGPath` boolean operations, so the edge is exact and the cut is saved in the drawing file. Splitting strokes was rejected because it rounds the ends.
+  - A stroke cut away completely is removed. An empty mask would make PencilKit show the whole stroke again.
+  - A spot already erased doesn't count again: overlaps under 0.5 pt are edge grazes, since a saved mask comes back slightly reshaped.
+  - The pixel width is in page points, so it zooms like ink and matches PencilKit's own eraser (checked side by side at 1× and 2×).
+- **Performance.** `Core/HighlighterEraser` indexes the highlighter strokes once per page (bounds from their points; PencilKit's `renderBounds` cost ~90 ms for 2,000 strokes the first time) and checks only strokes near the eraser. Touches are batched into one path per screen refresh (`CADisplayLink`), and the canvas is updated at most once a frame. The index is built ahead of time, from the canvas's own drawing, 300 ms after the page last changed (checked against a drawing version), so the first touch doesn't pay for it. A gesture's session is never reused for the next one: the owner saw imprecise erasing once while it was, and an index that differs from the screen must never be possible. Measured on the iPad (Release, a 2,000-stroke page, half highlighters, Pixel 40 pt): 120 fps for 28 of 30 s, 4 hitches, 3.2 ms/s of hitch time (Apple's "good" is under 5). The one 58 ms hitch was most likely the first touch building the index. With the index prepared ahead, separate strokes measured 2 hitches (17 and 33 ms), 1.7 ms/s.
+- **Undo.** Setting `drawing` registers no undo with PencilKit (checked), so each gesture registers one step that swaps whole drawings, with redo. It interleaves correctly with PencilKit's own stroke undo (tested on device). The gesture also sends `onToolUsage`, so the pill works with this eraser too.
+- **Budget after M2c:** the Release `main.jsbundle` is 3,997,192 bytes (with Hermes debug info; reviewed in Phase 8 per the owner's decision).
 
 **Exit criteria**
 
