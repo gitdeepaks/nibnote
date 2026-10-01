@@ -21,7 +21,7 @@ public final class PencilCanvasModule: Module {
         }
 
         View(PencilCanvasView.self) {
-            Events("onDrawingChanged", "onPencilAction", "onCanvasError", "onPageSwipe")
+            Events("onDrawingChanged", "onPencilAction", "onCanvasError", "onPageSwipe", "onToolUsage")
 
             Prop("pageId") { (view: PencilCanvasView, value: String) in
                 view.pageId = value

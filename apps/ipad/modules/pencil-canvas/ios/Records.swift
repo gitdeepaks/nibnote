@@ -44,6 +44,12 @@ struct PencilActionRecord: Record {
     @Field var preferredAction: String = "ignore"
 }
 
+/// A tool started (`active`) or stopped touching the page: a stroke, an erase or a lasso.
+struct ToolUsageRecord: Record {
+    @Field var pageId: String = ""
+    @Field var active: Bool = false
+}
+
 struct PageSwipeRecord: Record {
     @Field var pageId: String = ""
     /// "next" (swipe left) or "previous" (swipe right).

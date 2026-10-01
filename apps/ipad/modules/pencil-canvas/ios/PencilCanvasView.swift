@@ -24,6 +24,7 @@ final class PencilCanvasView: ExpoView {
     let onPencilAction = EventDispatcher()
     let onCanvasError = EventDispatcher()
     let onPageSwipe = EventDispatcher()
+    let onToolUsage = EventDispatcher()
 
     let canvasView = PageCanvasView()
     let store = DrawingStore()
@@ -78,6 +79,13 @@ final class PencilCanvasView: ExpoView {
         pencilInteraction.delegate = self
         addInteraction(pencilInteraction)
         installPageSwipes()
+        // VoiceOver claims every touch for navigation (tap selects, double-tap activates), so without
+        // this nothing could be written with it on. Direct interaction passes touches on the page
+        // straight to PencilKit, as Apple intends for drawing surfaces.
+        isAccessibilityElement = true
+        accessibilityTraits = .allowsDirectInteraction
+        accessibilityLabel = "Writing area"
+        accessibilityHint = "Write or draw directly on the page."
         NotificationCenter.default.addObserver(
             self, selector: #selector(appWillResignActive),
             name: UIApplication.willResignActiveNotification, object: nil)
