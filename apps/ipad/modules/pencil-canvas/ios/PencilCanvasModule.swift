@@ -60,8 +60,8 @@ public final class PencilCanvasModule: Module {
             AsyncFunction("save") { (view: PencilCanvasView, promise: Promise) in
                 MainActor.assumeIsolated { view.save(resolving: promise) }
             }.runOnQueue(.main)
-            AsyncFunction("debugFillStrokes") { (view: PencilCanvasView, count: Int) in
-                MainActor.assumeIsolated { view.debugFillStrokes(count: count) }
+            AsyncFunction("debugFillStrokes") { (view: PencilCanvasView, count: Int, mixed: Bool) in
+                MainActor.assumeIsolated { view.debugFillStrokes(count: count, mixed: mixed) }
             }.runOnQueue(.main)
         }
 

@@ -37,6 +37,11 @@ final class PencilCanvasView: ExpoView {
     private(set) lazy var pageSwipeGate = PageSwipeGate { [weak self] touches in
         self?.allowsPageSwipe(touches: touches) ?? false
     }
+    /// "Erase highlighter only": Nibnote's own eraser, used instead of PencilKit's while that tool is set.
+    private(set) lazy var highlighterEraser = HighlighterEraserInput(canvasView: canvasView)
+    var appliedHighlighterEraserState: (
+        configuration: HighlighterEraserInput.Configuration?, policy: PKCanvasViewDrawingPolicy
+    )?
     private let toolPicker = PKToolPicker()
     private let pencilInteraction = UIPencilInteraction()
     private static let defaultInk = RGBAColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1)
@@ -49,6 +54,7 @@ final class PencilCanvasView: ExpoView {
     private var pageSize = CGSize(width: 595, height: 842)
     private var template: PageTemplateSpec = .blank
     private var tool: CanvasToolSpec = .ink(.pen, color: PencilCanvasView.defaultInk, width: 3)
+    var currentTool: CanvasToolSpec { tool }
     private var propErrors: [(code: String, message: String)] = []
 
     // Applied state, so unchanged props cost nothing.
@@ -63,6 +69,8 @@ final class PencilCanvasView: ExpoView {
     var isReplacingDrawing = false
     var lastDrawingChanged: DrawingChangedRecord?
     var isDrawingChangedScheduled = false
+    /// Counts every change to the canvas's drawing (the highlighter eraser checks its index against it).
+    var drawingVersion = 0
 
     required init(appContext: AppContext? = nil) {
         super.init(appContext: appContext)
@@ -79,6 +87,7 @@ final class PencilCanvasView: ExpoView {
         pencilInteraction.delegate = self
         addInteraction(pencilInteraction)
         installPageSwipes()
+        installHighlighterEraser()
         // VoiceOver claims every touch for navigation (tap selects, double-tap activates), so without
         // this nothing could be written with it on. Direct interaction passes touches on the page
         // straight to PencilKit, as Apple intends for drawing surfaces.
@@ -145,6 +154,7 @@ final class PencilCanvasView: ExpoView {
             canvasView.tool = ToolMapping.pkTool(for: tool)
             appliedTool = tool
         }
+        applyHighlighterEraser()
         applyToolPickerVisibility()
 
         let next = URL(string: drawingFileUri).flatMap { url in
