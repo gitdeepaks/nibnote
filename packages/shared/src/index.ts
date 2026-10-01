@@ -18,6 +18,7 @@ export {
   Sha256,
   StrokeWidth,
   ThumbnailWrittenEvent,
+  ToolUsageEvent,
 } from "./canvas";
 export { FolderId, NotebookId, PageId, TagId } from "./ids";
 export {
@@ -64,11 +65,14 @@ export {
   effectiveWidth,
   EraserMode,
   inkOf,
+  isVerticalDock,
   MAX_RECENT_COLORS,
   PenInk,
+  nearestDock,
   rememberColor,
   selectSlot,
   selectWidthPreset,
+  setDock,
   setPenInk,
   setPinnedColor,
   setSlotColor,
@@ -77,6 +81,7 @@ export {
   slotWidthRange,
   StoredToolbox,
   toggleDrawingPolicy,
+  ToolbarDock,
   ToolSlot,
   type ColorSlot,
   type EraserSettings,

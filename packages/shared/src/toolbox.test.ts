@@ -10,11 +10,14 @@ import {
   DEFAULT_TOOLBOX,
   effectiveWidth,
   HexColor,
+  isVerticalDock,
   MAX_RECENT_COLORS,
+  nearestDock,
   rememberColor,
   PencilPreferredAction,
   selectSlot,
   selectWidthPreset,
+  setDock,
   setPenInk,
   setPinnedColor,
   setSlotColor,
@@ -22,6 +25,7 @@ import {
   setWidthPreset,
   StoredToolbox,
   toggleDrawingPolicy,
+  ToolbarDock,
   ToolSlot,
   type Toolbox,
 } from "./index";
@@ -232,7 +236,7 @@ describe("StoredToolbox", () => {
   test("unknown fields from a newer version are dropped, not fatal", () => {
     const toolbox = stored({
       ...DEFAULT_TOOLBOX,
-      dock: "left",
+      handedness: "left",
       slots: { ...DEFAULT_TOOLBOX.slots, eraser: { ...DEFAULT_TOOLBOX.slots.eraser, highlighterOnly: true } },
     });
     expect(toolbox).toEqual(DEFAULT_TOOLBOX);
@@ -334,5 +338,50 @@ describe("pinned and recent colours", () => {
     const corrupt = stored({ ...toolbox, recentColors: ["nope"] });
     expect(corrupt.recentColors).toEqual([]);
     expect(corrupt.slots.pen.pinnedColors[1]).toBe(green);
+  });
+});
+
+describe("toolbar dock", () => {
+  const area = { width: 834, height: 1100 };
+
+  test("starts at the bottom and survives storing", () => {
+    expect(DEFAULT_TOOLBOX.dock).toBe("bottom");
+    expect(stored(setDock(DEFAULT_TOOLBOX, "left")).dock).toBe("left");
+  });
+
+  test("a toolbox saved before docking existed keeps everything else", () => {
+    const edited = setPinnedColor(DEFAULT_TOOLBOX, "pen", 1, green);
+    // Saved by M2a: every field except `dock`.
+    const toolbox = stored({
+      active: edited.active,
+      previous: edited.previous,
+      slots: edited.slots,
+      drawingPolicy: edited.drawingPolicy,
+      recentColors: [green],
+    });
+    expect(toolbox.dock).toBe("bottom");
+    expect(toolbox.slots.pen.pinnedColors[1]).toBe(green);
+    expect(toolbox.recentColors).toEqual([green]);
+    expect(stored({ ...DEFAULT_TOOLBOX, dock: "middle" }).dock).toBe("bottom");
+  });
+
+  test("setting the dock it already has changes nothing", () => {
+    expect(setDock(DEFAULT_TOOLBOX, "bottom")).toBe(DEFAULT_TOOLBOX);
+  });
+
+  test("snaps to the edge closest to where the toolbar is let go", () => {
+    expect(nearestDock({ x: 417, y: 1050 }, area)).toBe("bottom");
+    expect(nearestDock({ x: 417, y: 40 }, area)).toBe("top");
+    expect(nearestDock({ x: 30, y: 550 }, area)).toBe("left");
+    expect(nearestDock({ x: 800, y: 550 }, area)).toBe("right");
+    expect(nearestDock({ x: 60, y: 1080 }, area)).toBe("bottom");
+  });
+
+  test("a drop in the exact middle prefers the bottom", () => {
+    expect(nearestDock({ x: 50, y: 50 }, { width: 100, height: 100 })).toBe("bottom");
+  });
+
+  test("left and right are vertical", () => {
+    expect(ToolbarDock.options.filter(isVerticalDock)).toEqual(["left", "right"]);
   });
 });

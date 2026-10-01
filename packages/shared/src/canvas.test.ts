@@ -13,6 +13,7 @@ import {
   DrawingSavedEvent,
   PageSwipeEvent,
   ThumbnailWrittenEvent,
+  ToolUsageEvent,
 } from "./index";
 
 const pageId = "8f14e45f-ceea-467a-9575-5e1b5c6d7a10";
@@ -194,5 +195,15 @@ describe("PageSwipeEvent", () => {
 
   test("rejects unknown directions", () => {
     expect(PageSwipeEvent.safeParse({ pageId, direction: "up" }).success).toBe(false);
+  });
+});
+
+describe("ToolUsageEvent", () => {
+  test("parses a page id and whether a tool is touching the page", () => {
+    const event = ToolUsageEvent.parse({ pageId, active: true });
+    expect(event.active).toBe(true);
+    expect(String(event.pageId)).toBe(pageId);
+    expect(ToolUsageEvent.safeParse({ pageId, active: "yes" }).success).toBe(false);
+    expect(ToolUsageEvent.safeParse({ pageId: "nope", active: false }).success).toBe(false);
   });
 });
