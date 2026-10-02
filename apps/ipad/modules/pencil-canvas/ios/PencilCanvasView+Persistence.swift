@@ -27,6 +27,7 @@ extension PencilCanvasView {
         autosave.cancel()
         highlighterEraser.cancel()
         canvasView.drawingGestureRecognizer.isEnabled = false
+        lastTouchInContent = nil
         replaceDrawing(with: PKDrawing())
         let store = store
         Task { [weak self] in

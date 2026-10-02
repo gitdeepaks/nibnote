@@ -122,6 +122,7 @@ describe("native events", () => {
         pageId,
         kind: "tap",
         preferredAction: "switchEraser",
+        location: null,
       }).success,
     ).toBe(true);
     expect(
@@ -156,6 +157,7 @@ describe("native events", () => {
         pageId,
         kind: "hover",
         preferredAction: "ignore",
+        location: null,
       }).success,
     ).toBe(false);
     expect(
@@ -221,5 +223,26 @@ describe("HistoryGestureEvent", () => {
   test("rejects unknown actions and missing fields", () => {
     expect(HistoryGestureEvent.safeParse({ pageId, action: "clear", applied: true }).success).toBe(false);
     expect(HistoryGestureEvent.safeParse({ pageId, action: "undo" }).success).toBe(false);
+  });
+});
+
+describe("PencilActionEvent location", () => {
+  test("carries a point or null", () => {
+    const at = PencilActionEvent.parse({
+      pageId,
+      kind: "squeeze",
+      preferredAction: "showContextualPalette",
+      location: { x: 120.5, y: 300 },
+    });
+    expect(at.location).toEqual({ x: 120.5, y: 300 });
+    expect(
+      PencilActionEvent.parse({ pageId, kind: "tap", preferredAction: "showColorPalette", location: null }).location,
+    ).toBeNull();
+  });
+
+  test("rejects a missing location and non-finite points", () => {
+    expect(PencilActionEvent.safeParse({ pageId, kind: "tap", preferredAction: "ignore" }).success).toBe(false);
+    const infinite = { pageId, kind: "tap", preferredAction: "ignore", location: { x: Infinity, y: 0 } };
+    expect(PencilActionEvent.safeParse(infinite).success).toBe(false);
   });
 });

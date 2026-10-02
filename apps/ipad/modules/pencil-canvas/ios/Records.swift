@@ -40,10 +40,18 @@ struct DrawingChangedRecord: Record, Equatable {
     }
 }
 
+/// A point in the canvas view, in points from its top-left corner (`{ x, y }` in JS).
+struct CanvasPointRecord: Record {
+    @Field(.keyed("x")) var pointX: Double = 0
+    @Field(.keyed("y")) var pointY: Double = 0
+}
+
 struct PencilActionRecord: Record {
     @Field var pageId: String = ""
     @Field var kind: String = "tap"
     @Field var preferredAction: String = "ignore"
+    /// The hover position, else the last touch still on screen; nil when neither is known.
+    @Field var location: CanvasPointRecord?
 }
 
 /// A tool started (`active`) or stopped touching the page: a stroke, an erase or a lasso.
