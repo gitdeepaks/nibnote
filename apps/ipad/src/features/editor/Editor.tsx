@@ -286,17 +286,13 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
     setToolbarDismiss((count) => count + 1);
   };
 
-  const pencilFeedback = (at: CanvasPoint | null) => {
-    run("Pencil feedback", (canvas) => canvas.toolFeedback(at));
-  };
-
   const handlePencilAction = (event: PencilActionEvent) => {
     if (event.pageId !== page.id) return;
     const response = pencilResponse(event.kind, event.preferredAction, atPencil?.surface ?? null);
     switch (response.kind) {
       case "switchTool":
+        // The native side plays the Pencil Pro haptic when the tool changes (`ToolFeedbackRule`).
         toolActions.applyPencilAction(response.action);
-        pencilFeedback(event.location);
         if (!response.keepOpen) setPencilOpen(null);
         return;
       case "open":
@@ -485,6 +481,10 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
                 if (event.pageId === page.id) toolbarCollapse.toolUsage(event.active);
               }}
               onHistoryGesture={handleHistoryGesture}
+              onToolFeedback={(event) => {
+                // Development builds only: shows when Apple Pencil Pro would feel the haptic.
+                if (__DEV__) console.log(`Pencil haptic (${event.source})`);
+              }}
             />
           </Animated.View>
           <Toolbar
@@ -535,7 +535,6 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
               key={atPencil.id}
               point={atPencil.point}
               area={area}
-              onPicked={pencilFeedback}
               onOptions={() => {
                 openAtPencil("options", atPencil.point);
               }}

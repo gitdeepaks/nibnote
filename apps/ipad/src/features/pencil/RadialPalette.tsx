@@ -42,14 +42,12 @@ type RadialPaletteProps = {
   /** Where the Pencil is, in the page area; null centres the palette. */
   readonly point: CanvasPoint | null;
   readonly area: AreaSize;
-  /** A tool or colour was picked with the Pencil at `at` (for the Pencil Pro haptic). */
-  readonly onPicked: (at: CanvasPoint) => void;
   /** Open the active tool's options at the Pencil. */
   readonly onOptions: () => void;
   readonly onClose: () => void;
 };
 
-export function RadialPalette({ point, area, onPicked, onOptions, onClose }: RadialPaletteProps) {
+export function RadialPalette({ point, area, onOptions, onClose }: RadialPaletteProps) {
   const toolbox = useToolbox((state) => state.toolbox);
   const actions = useToolbox((state) => state.actions);
   const reduceMotion = useReduceMotion();
@@ -87,16 +85,15 @@ export function RadialPalette({ point, area, onPicked, onOptions, onClose }: Rad
   const active = TOOLS[toolbox.active];
   const activeColor = colorSlotOf(toolbox.active);
 
-  const choose = (item: PaletteItem, at: CanvasPoint) => {
+  // A pick made with the Pencil plays the Pencil Pro haptic natively (`ToolFeedbackRule`).
+  const choose = (item: PaletteItem) => {
     switch (item.kind) {
       case "tool":
         actions.selectSlot(item.slot);
-        onPicked(at);
         dismiss(PICKED_HOLD_MS, onClose);
         return;
       case "color":
         actions.chooseColor(target, targetSettings.pinnedColors[item.index]);
-        onPicked(at);
         dismiss(PICKED_HOLD_MS, onClose);
         return;
       case "options":
@@ -105,10 +102,10 @@ export function RadialPalette({ point, area, onPicked, onOptions, onClose }: Rad
     }
   };
 
-  const renderItem = (item: PaletteItem, at: CanvasPoint) => {
+  const renderItem = (item: PaletteItem) => {
     const selected = isPaletteItemSelected(toolbox, item);
     const press = () => {
-      choose(item, at);
+      choose(item);
     };
     switch (item.kind) {
       case "tool":
@@ -213,7 +210,7 @@ export function RadialPalette({ point, area, onPicked, onOptions, onClose }: Rad
                 justifyContent: "center",
               }}
             >
-              {renderItem(item, at)}
+              {renderItem(item)}
             </View>
           );
         })}

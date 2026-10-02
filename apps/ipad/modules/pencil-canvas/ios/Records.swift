@@ -67,6 +67,13 @@ struct HistoryGestureRecord: Record {
     @Field var applied: Bool = false
 }
 
+/// Development builds only: the Pencil Pro haptic played after a tool change made with the Pencil.
+struct ToolFeedbackRecord: Record {
+    @Field var pageId: String = ""
+    /// "touch" (a Pencil tap outside the page), "tap" (double-tap) or "squeeze".
+    @Field var source: String = "touch"
+}
+
 struct PageSwipeRecord: Record {
     @Field var pageId: String = ""
     /// "next" (swipe left) or "previous" (swipe right).

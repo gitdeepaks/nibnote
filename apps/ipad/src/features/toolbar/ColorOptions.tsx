@@ -13,7 +13,7 @@ import {
   type TrioIndex,
 } from "@nibnote/shared";
 import { ColorPicker, Picker, RNHostView, Text as SwiftText, VStack } from "@expo/ui/swift-ui";
-import { frame, padding, pickerStyle, tag } from "@expo/ui/swift-ui/modifiers";
+import { accessibilityLabel, frame, padding, pickerStyle, tag } from "@expo/ui/swift-ui/modifiers";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { z } from "zod";
@@ -89,7 +89,7 @@ export function ColorOptions({ slot, index, onSystemPick }: ColorOptionsProps) {
         </View>
       </RNHostView>
       <Picker
-        modifiers={[pickerStyle("segmented")]}
+        modifiers={[pickerStyle("segmented"), accessibilityLabel("Choose colour by")]}
         selection={mode}
         onSelectionChange={(selection) => {
           const parsed = Mode.safeParse(selection);

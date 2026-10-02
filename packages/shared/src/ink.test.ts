@@ -9,6 +9,7 @@ import {
   inkVisibility,
   parseHexInput,
   sameColor,
+  spokenWidth,
   widthRange,
 } from "./index";
 
@@ -118,5 +119,12 @@ describe("colorName", () => {
       ["#0A60FF80", "Blue"],
     ] as const;
     for (const [color, name] of names) expect(colorName(hex(color))).toBe(name);
+  });
+});
+
+describe("spokenWidth", () => {
+  test("says points in words, to one decimal", () => {
+    expect(spokenWidth(3)).toBe("3.0 points");
+    expect(spokenWidth(16.4)).toBe("16.4 points");
   });
 });

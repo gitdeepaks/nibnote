@@ -146,6 +146,16 @@ export const HistoryGestureEvent = z
   .readonly();
 export type HistoryGestureEvent = z.infer<typeof HistoryGestureEvent>;
 
+// Development builds only: the Apple Pencil Pro haptic played after a tool change made with the
+// Pencil ("touch": a Pencil tap outside the page; "tap" or "squeeze": the Pencil's own gestures)
+export const ToolFeedbackEvent = z
+  .object({
+    pageId: PageId,
+    source: z.enum(["touch", "tap", "squeeze"]),
+  })
+  .readonly();
+export type ToolFeedbackEvent = z.infer<typeof ToolFeedbackEvent>;
+
 // A one-finger swipe on the page: left turns to the next page, right to the previous one
 export const PageSwipeEvent = z
   .object({

@@ -6,12 +6,13 @@ import {
   selectSlot,
   setWidthPreset,
   slotWidthRange,
+  spokenWidth,
   type ColorSlot,
   type TrioIndex,
   type WidthRange,
 } from "@nibnote/shared";
 import { Picker, RNHostView, Slider, Text as SwiftText, VStack } from "@expo/ui/swift-ui";
-import { frame, padding, pickerStyle, tag } from "@expo/ui/swift-ui/modifiers";
+import { accessibilityLabel, accessibilityValue, frame, padding, pickerStyle, tag } from "@expo/ui/swift-ui/modifiers";
 import { useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { colors } from "../../theme/colors";
@@ -77,6 +78,7 @@ export function ToolOptions({ slot }: { readonly slot: ColorSlot }) {
         </View>
       </RNHostView>
       <Slider
+        modifiers={[accessibilityLabel(`${TOOL_NAMES[slot]} width`), accessibilityValue(spokenWidth(width))]}
         value={width}
         min={range.min}
         max={range.max}
@@ -95,7 +97,7 @@ export function ToolOptions({ slot }: { readonly slot: ColorSlot }) {
       />
       {slot === "pen" && (
         <Picker
-          modifiers={[pickerStyle("segmented")]}
+          modifiers={[pickerStyle("segmented"), accessibilityLabel("Ink")]}
           selection={toolbox.slots.pen.ink}
           onSelectionChange={(selection) => {
             const parsed = PenInk.safeParse(selection);
@@ -128,7 +130,7 @@ function PresetButton({ width, range, selected, onPress }: PresetButtonProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Width ${formatWidth(clamped)}`}
+      accessibilityLabel={`Width ${spokenWidth(clamped)}`}
       accessibilityState={{ selected }}
       onPress={onPress}
       style={{

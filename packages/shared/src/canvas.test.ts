@@ -6,6 +6,7 @@ import {
   FileUri,
   HexColor,
   HistoryGestureEvent,
+  ToolFeedbackEvent,
   PAGE_SIZES,
   PageSize,
   PageTemplate,
@@ -244,5 +245,14 @@ describe("PencilActionEvent location", () => {
     expect(PencilActionEvent.safeParse({ pageId, kind: "tap", preferredAction: "ignore" }).success).toBe(false);
     const infinite = { pageId, kind: "tap", preferredAction: "ignore", location: { x: Infinity, y: 0 } };
     expect(PencilActionEvent.safeParse(infinite).success).toBe(false);
+  });
+});
+
+describe("ToolFeedbackEvent", () => {
+  test("parses the page and what the Pencil did", () => {
+    for (const source of ["touch", "tap", "squeeze"] as const) {
+      expect(ToolFeedbackEvent.parse({ pageId, source }).source).toBe(source);
+    }
+    expect(ToolFeedbackEvent.safeParse({ pageId, source: "finger" }).success).toBe(false);
   });
 });

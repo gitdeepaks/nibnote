@@ -4,10 +4,14 @@ import {
   ERASER_WIDTH_RANGE,
   EraserMode,
   setEraserPreset,
+  spokenWidth,
   type TrioIndex,
 } from "@nibnote/shared";
 import { Button, HStack, Picker, Slider, Text, Toggle, VStack } from "@expo/ui/swift-ui";
 import {
+  accessibilityAddTraits,
+  accessibilityLabel,
+  accessibilityValue,
   buttonStyle,
   controlSize,
   font,
@@ -54,7 +58,7 @@ export function EraserOptions() {
         </Text>
       </HStack>
       <Picker
-        modifiers={[pickerStyle("segmented")]}
+        modifiers={[pickerStyle("segmented"), accessibilityLabel("Eraser mode")]}
         selection={eraser.mode}
         onSelectionChange={(selection) => {
           const parsed = EraserMode.safeParse(selection);
@@ -75,7 +79,12 @@ export function EraserOptions() {
                 onPress={() => {
                   actions.selectEraserPreset(index);
                 }}
-                modifiers={[buttonStyle(selected ? "borderedProminent" : "bordered"), controlSize("large")]}
+                modifiers={[
+                  buttonStyle(selected ? "borderedProminent" : "bordered"),
+                  controlSize("large"),
+                  accessibilityLabel(`Width ${spokenWidth(preset)}`),
+                  ...(selected ? [accessibilityAddTraits(["isSelected"])] : []),
+                ]}
               >
                 <Text modifiers={[frame({ maxWidth: Infinity }), font({ design: "monospaced" })]}>
                   {preset.toFixed(1)}
@@ -87,6 +96,7 @@ export function EraserOptions() {
       )}
       {eraser.mode === "pixel" && (
         <Slider
+          modifiers={[accessibilityLabel("Eraser width"), accessibilityValue(spokenWidth(width))]}
           value={width}
           min={ERASER_WIDTH_RANGE.min}
           max={ERASER_WIDTH_RANGE.max}
