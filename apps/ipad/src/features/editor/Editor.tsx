@@ -4,6 +4,7 @@ import {
   type NotebookId,
   type Page,
   type PageId,
+  type HistoryGestureEvent,
   type PageSwipeEvent,
   type PencilActionEvent,
 } from "@nibnote/shared";
@@ -19,6 +20,7 @@ import { useLiveRead } from "../../db/useLiveRead";
 import { colors } from "../../theme/colors";
 import { CanvasBanner } from "./CanvasBanner";
 import { formatLocalDate } from "./dates";
+import { HistoryHud, type HistoryNotice } from "./HistoryHud";
 import { canvasMessageFor, type CanvasMessage } from "./canvasMessages";
 import { env } from "../../lib/env";
 import {
@@ -172,6 +174,7 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
   } | null>(null);
   const [stripOpen, setStripOpen] = useState(stripPreference.open);
   const [showingGrid, setShowingGrid] = useState(false);
+  const [historyNotice, setHistoryNotice] = useState<HistoryNotice | null>(null);
   const [turn] = useState(() => ({
     offset: new Animated.Value(0),
     opacity: new Animated.Value(1),
@@ -185,6 +188,15 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
   const canUndo = history.pageId === page.id && history.canUndo;
   const canRedo = history.pageId === page.id && history.canRedo;
   const message = notice?.pageId === page.id ? notice.message : null;
+
+  const handleHistoryGesture = (event: HistoryGestureEvent) => {
+    if (event.pageId !== page.id) return;
+    setHistoryNotice((previous) => ({
+      id: (previous?.id ?? 0) + 1,
+      action: event.action,
+      applied: event.applied,
+    }));
+  };
 
   const handlePencilAction = (event: PencilActionEvent) => {
     toolActions.applyPencilAction(event.preferredAction);
@@ -385,6 +397,7 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
               onToolUsage={(event) => {
                 if (event.pageId === page.id) toolbarCollapse.toolUsage(event.active);
               }}
+              onHistoryGesture={handleHistoryGesture}
             />
           </Animated.View>
           <Toolbar
@@ -428,6 +441,7 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
               />
             )}
           </View>
+          {historyNotice !== null && <HistoryHud notice={historyNotice} dock={toolbox.dock} />}
         </View>
       </View>
     </>

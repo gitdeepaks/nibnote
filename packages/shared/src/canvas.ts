@@ -121,6 +121,19 @@ export const ToolUsageEvent = z
   .readonly();
 export type ToolUsageEvent = z.infer<typeof ToolUsageEvent>;
 
+export const HistoryAction = z.enum(["undo", "redo"]);
+export type HistoryAction = z.infer<typeof HistoryAction>;
+
+// A two-finger (undo) or three-finger (redo) tap on the page; `applied` is false when there was nothing to do
+export const HistoryGestureEvent = z
+  .object({
+    pageId: PageId,
+    action: HistoryAction,
+    applied: z.boolean(),
+  })
+  .readonly();
+export type HistoryGestureEvent = z.infer<typeof HistoryGestureEvent>;
+
 // A one-finger swipe on the page: left turns to the next page, right to the previous one
 export const PageSwipeEvent = z
   .object({

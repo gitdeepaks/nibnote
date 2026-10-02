@@ -1,6 +1,7 @@
 import {
   CanvasErrorEvent,
   DrawingChangedEvent,
+  HistoryGestureEvent,
   PageSwipeEvent,
   ToolUsageEvent,
   PencilActionEvent,
@@ -42,6 +43,7 @@ type NativeCanvasProps = {
   readonly onCanvasError: (event: NativeEvent) => void;
   readonly onPageSwipe: (event: NativeEvent) => void;
   readonly onToolUsage: (event: NativeEvent) => void;
+  readonly onHistoryGesture: (event: NativeEvent) => void;
 };
 
 const NativePencilCanvas = requireNativeView<NativeCanvasProps>("PencilCanvas", "PencilCanvasView");
@@ -67,6 +69,8 @@ export type PencilCanvasProps = {
   readonly onPageSwipe: (event: PageSwipeEvent) => void;
   /** A stroke, erase or lasso started or ended; scrolling and zooming don't count. */
   readonly onToolUsage: (event: ToolUsageEvent) => void;
+  /** Two fingers tapped (undo) or three (redo); the native side has already done it. */
+  readonly onHistoryGesture: (event: HistoryGestureEvent) => void;
   readonly style?: StyleProp<ViewStyle>;
   /** Debug builds only: Apple's PKToolPicker, the Phase 1 fallback from the build plan. */
   readonly debugSystemToolPicker: boolean;
@@ -96,6 +100,7 @@ export function PencilCanvas({
   onCanvasError,
   onPageSwipe,
   onToolUsage,
+  onHistoryGesture,
   debugSystemToolPicker,
   ...props
 }: PencilCanvasProps) {
@@ -127,6 +132,7 @@ export function PencilCanvas({
       onCanvasError={forward("onCanvasError", CanvasErrorEvent, onCanvasError)}
       onPageSwipe={forward("onPageSwipe", PageSwipeEvent, onPageSwipe)}
       onToolUsage={forward("onToolUsage", ToolUsageEvent, onToolUsage)}
+      onHistoryGesture={forward("onHistoryGesture", HistoryGestureEvent, onHistoryGesture)}
     />
   );
 }
