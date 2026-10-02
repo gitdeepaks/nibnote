@@ -4,6 +4,9 @@ import ExpoModulesCore
 /// packages/shared/src/canvas.ts; drawing bytes never cross the bridge, only file URIs and events.
 public final class PencilCanvasModule: Module {
     static let moduleName = "PencilCanvas"
+    private static let viewEvents = [
+        "onDrawingChanged", "onPencilAction", "onCanvasError", "onPageSwipe", "onToolUsage", "onHistoryGesture"
+    ]
     /// Rebuilds thumbnails for pages that aren't on a canvas (after iOS purges the Caches folder).
     /// An actor, so the Sendable module function can share it without capturing the module.
     private static let thumbnails = ThumbnailWriter()
@@ -21,7 +24,7 @@ public final class PencilCanvasModule: Module {
         }
 
         View(PencilCanvasView.self) {
-            Events("onDrawingChanged", "onPencilAction", "onCanvasError", "onPageSwipe", "onToolUsage")
+            Events(Self.viewEvents)
 
             Prop("pageId") { (view: PencilCanvasView, value: String) in
                 view.pageId = value
@@ -52,10 +55,10 @@ public final class PencilCanvasModule: Module {
             // View functions touch UIKit, so they run on the main queue. SDK 58 only offers
             // main-actor `async` view functions to SwiftUI views, so `save` resolves a Promise.
             AsyncFunction("undo") { (view: PencilCanvasView) in
-                MainActor.assumeIsolated { view.undo() }
+                MainActor.assumeIsolated { _ = view.undo() }
             }.runOnQueue(.main)
             AsyncFunction("redo") { (view: PencilCanvasView) in
-                MainActor.assumeIsolated { view.redo() }
+                MainActor.assumeIsolated { _ = view.redo() }
             }.runOnQueue(.main)
             AsyncFunction("save") { (view: PencilCanvasView, promise: Promise) in
                 MainActor.assumeIsolated { view.save(resolving: promise) }

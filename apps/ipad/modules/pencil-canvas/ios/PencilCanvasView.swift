@@ -25,6 +25,7 @@ final class PencilCanvasView: ExpoView {
     let onCanvasError = EventDispatcher()
     let onPageSwipe = EventDispatcher()
     let onToolUsage = EventDispatcher()
+    let onHistoryGesture = EventDispatcher()
 
     let canvasView = PageCanvasView()
     let store = DrawingStore()
@@ -36,6 +37,10 @@ final class PencilCanvasView: ExpoView {
     /// Gesture delegates are weak, so the view keeps the swipe gate alive.
     private(set) lazy var pageSwipeGate = PageSwipeGate { [weak self] touches in
         self?.allowsPageSwipe(touches: touches) ?? false
+    }
+    /// Gesture delegates are weak, so the view keeps the finger-tap gate alive too.
+    private(set) lazy var fingerTapGate = FingerTapGate { [weak self] in
+        self?.currentViewport ?? FingerTap.Viewport(zoom: 0, offset: .zero)
     }
     /// "Erase highlighter only": Nibnote's own eraser, used instead of PencilKit's while that tool is set.
     private(set) lazy var highlighterEraser = HighlighterEraserInput(canvasView: canvasView)
@@ -71,6 +76,8 @@ final class PencilCanvasView: ExpoView {
     var isDrawingChangedScheduled = false
     /// Counts every change to the canvas's drawing (the highlighter eraser checks its index against it).
     var drawingVersion = 0
+    /// A stroke, erase or lasso is touching the page (between the begin and end of `onToolUsage`).
+    var isToolInUse = false
 
     required init(appContext: AppContext? = nil) {
         super.init(appContext: appContext)
@@ -88,6 +95,7 @@ final class PencilCanvasView: ExpoView {
         addInteraction(pencilInteraction)
         installPageSwipes()
         installHighlighterEraser()
+        installFingerTaps()
         // VoiceOver claims every touch for navigation (tap selects, double-tap activates), so without
         // this nothing could be written with it on. Direct interaction passes touches on the page
         // straight to PencilKit, as Apple intends for drawing surfaces.

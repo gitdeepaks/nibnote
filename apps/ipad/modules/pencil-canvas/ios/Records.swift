@@ -52,6 +52,13 @@ struct ToolUsageRecord: Record {
     @Field var active: Bool = false
 }
 
+/// A two-finger (undo) or three-finger (redo) tap on the page, and whether there was anything to do.
+struct HistoryGestureRecord: Record {
+    @Field var pageId: String = ""
+    @Field var action: String = "undo"
+    @Field var applied: Bool = false
+}
+
 struct PageSwipeRecord: Record {
     @Field var pageId: String = ""
     /// "next" (swipe left) or "previous" (swipe right).

@@ -86,6 +86,7 @@ extension PencilCanvasView {
     }
 
     func emitToolUsage(active: Bool) {
+        isToolInUse = active
         let record = ToolUsageRecord()
         record.pageId = pageId
         record.active = active

@@ -32,6 +32,8 @@ final class HighlighterEraserInput: NSObject, UIGestureRecognizerDelegate {
     private var session: HighlighterEraser.Session?
     private var before: PKDrawing?
     private var lastPoint: CGPoint?
+    /// Whether the touch erasing now is a finger (only when fingers draw), not the Pencil.
+    private var erasingWithFinger = false
     private var pending: [CGPoint] = []
     private var displayLink: CADisplayLink?
     /// The page indexed ahead of the next gesture, for the drawing version it was built from.
@@ -121,6 +123,24 @@ final class HighlighterEraserInput: NSObject, UIGestureRecognizerDelegate {
         finish(applyPending: false)
     }
 
+    /// A second finger came down. If a finger is erasing, the touches are a two-finger tap or a
+    /// scroll, not erasing: whatever the first finger erased is put back, with no undo step, so a
+    /// two-finger undo undoes the user's last real change. A Pencil erasing carries on.
+    func secondFingerDown() {
+        guard session != nil, erasingWithFinger else { return }
+        finish(applyPending: false, revert: true)
+        // Resets the recognizer, so the fingers still down can't start erasing again.
+        gesture.isEnabled = false
+        gesture.isEnabled = configuration != nil
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        if gestureRecognizer.numberOfTouches == 0 {
+            erasingWithFinger = touch.type == .direct
+        }
+        return true
+    }
+
     @objc private func handle(_ recognizer: UILongPressGestureRecognizer) {
         switch recognizer.state {
         case .began:
@@ -173,13 +193,17 @@ final class HighlighterEraserInput: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
-    private func finish(applyPending: Bool) {
+    /// Ends the gesture. With `revert`, the page goes back to how it was before the gesture.
+    private func finish(applyPending: Bool, revert: Bool = false) {
         if applyPending { apply() }
         displayLink?.invalidate()
         displayLink = nil
         cursor.isHidden = true
         if let before, let session {
-            onEnd(before, session.hasChanges)
+            if revert, session.hasChanges {
+                canvasView.drawing = before
+            }
+            onEnd(before, session.hasChanges && !revert)
         }
         before = nil
         session = nil

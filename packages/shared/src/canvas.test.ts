@@ -5,6 +5,7 @@ import {
   DrawingChangedEvent,
   FileUri,
   HexColor,
+  HistoryGestureEvent,
   PAGE_SIZES,
   PageSize,
   PageTemplate,
@@ -206,5 +207,19 @@ describe("ToolUsageEvent", () => {
     expect(String(event.pageId)).toBe(pageId);
     expect(ToolUsageEvent.safeParse({ pageId, active: "yes" }).success).toBe(false);
     expect(ToolUsageEvent.safeParse({ pageId: "nope", active: false }).success).toBe(false);
+  });
+});
+
+describe("HistoryGestureEvent", () => {
+  test("parses the page, the action and whether anything changed", () => {
+    const event = HistoryGestureEvent.parse({ pageId, action: "redo", applied: false });
+    expect(event.action).toBe("redo");
+    expect(event.applied).toBe(false);
+    expect(HistoryGestureEvent.safeParse({ pageId, action: "undo", applied: true }).success).toBe(true);
+  });
+
+  test("rejects unknown actions and missing fields", () => {
+    expect(HistoryGestureEvent.safeParse({ pageId, action: "clear", applied: true }).success).toBe(false);
+    expect(HistoryGestureEvent.safeParse({ pageId, action: "undo" }).success).toBe(false);
   });
 });

@@ -7,6 +7,8 @@ export {
   DrawingSavedEvent,
   FileUri,
   HexColor,
+  HistoryAction,
+  HistoryGestureEvent,
   InkType,
   PAGE_SIZES,
   PageSize,

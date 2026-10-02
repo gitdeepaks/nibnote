@@ -170,16 +170,22 @@ extension PencilCanvasView {
 
     // MARK: - Undo, redo, debug
 
-    func undo() {
-        guard pageState == .ready, canvasView.pageUndoManager.canUndo else { return }
+    /// Returns whether there was anything to undo.
+    @discardableResult
+    func undo() -> Bool {
+        guard pageState == .ready, canvasView.pageUndoManager.canUndo else { return false }
         canvasView.pageUndoManager.undo()
         scheduleDrawingChangedEvent()
+        return true
     }
 
-    func redo() {
-        guard pageState == .ready, canvasView.pageUndoManager.canRedo else { return }
+    /// Returns whether there was anything to redo.
+    @discardableResult
+    func redo() -> Bool {
+        guard pageState == .ready, canvasView.pageUndoManager.canRedo else { return false }
         canvasView.pageUndoManager.redo()
         scheduleDrawingChangedEvent()
+        return true
     }
 
     /// Canvas Lab only: fills the page with synthetic strokes for the performance exit criteria.
