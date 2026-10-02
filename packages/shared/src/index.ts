@@ -21,6 +21,7 @@ export {
   Sha256,
   StrokeWidth,
   ThumbnailWrittenEvent,
+  ToolFeedbackEvent,
   ToolUsageEvent,
 } from "./canvas";
 export { FolderId, NotebookId, PageId, TagId } from "./ids";
@@ -52,6 +53,7 @@ export {
   parseHexInput,
   relativeLuminance,
   sameColor,
+  spokenWidth,
   widthRange,
   type InkVisibility,
   type WidthRange,

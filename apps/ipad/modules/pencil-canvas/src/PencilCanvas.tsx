@@ -3,10 +3,10 @@ import {
   DrawingChangedEvent,
   HistoryGestureEvent,
   PageSwipeEvent,
+  ToolFeedbackEvent,
   ToolUsageEvent,
   PencilActionEvent,
   SaveResult,
-  type CanvasPoint,
   type CanvasTool,
   type DrawingPolicy,
   type FileUri,
@@ -27,7 +27,6 @@ type NativeCanvasMethods = {
   readonly redo: () => Promise<void>;
   readonly save: () => Promise<object>;
   readonly debugFillStrokes: (count: number, mixed: boolean) => Promise<void>;
-  readonly toolFeedback: (location: CanvasPoint | null) => Promise<void>;
   readonly debugPencilAction: (kind: "tap" | "squeeze") => Promise<void>;
 };
 
@@ -47,6 +46,7 @@ type NativeCanvasProps = {
   readonly onPageSwipe: (event: NativeEvent) => void;
   readonly onToolUsage: (event: NativeEvent) => void;
   readonly onHistoryGesture: (event: NativeEvent) => void;
+  readonly onToolFeedback: (event: NativeEvent) => void;
 };
 
 const NativePencilCanvas = requireNativeView<NativeCanvasProps>("PencilCanvas", "PencilCanvasView");
@@ -57,11 +57,6 @@ export type PencilCanvasRef = {
   readonly save: () => Promise<SaveResult>;
   /** Development only: fills the page with synthetic strokes (`mixed`: half are highlighters). */
   readonly debugFillStrokes: (count: number, mixed: boolean) => Promise<void>;
-  /**
-   * A light tap on Apple Pencil Pro after a tool change made with the Pencil, at `location` when
-   * known. Plays nothing on other Pencils or on the iPad.
-   */
-  readonly toolFeedback: (location: CanvasPoint | null) => Promise<void>;
   /** Development only: sends a Pencil action as if the Pencil did it (`squeeze` opens the palette). */
   readonly debugPencilAction: (kind: "tap" | "squeeze") => Promise<void>;
 };
@@ -81,6 +76,8 @@ export type PencilCanvasProps = {
   readonly onToolUsage: (event: ToolUsageEvent) => void;
   /** Two fingers tapped (undo) or three (redo); the native side has already done it. */
   readonly onHistoryGesture: (event: HistoryGestureEvent) => void;
+  /** Development builds only: the Pencil Pro haptic played (the native side decides and plays it). */
+  readonly onToolFeedback: (event: ToolFeedbackEvent) => void;
   readonly style?: StyleProp<ViewStyle>;
   /** Debug builds only: Apple's PKToolPicker, the Phase 1 fallback from the build plan. */
   readonly debugSystemToolPicker: boolean;
@@ -111,6 +108,7 @@ export function PencilCanvas({
   onPageSwipe,
   onToolUsage,
   onHistoryGesture,
+  onToolFeedback,
   debugSystemToolPicker,
   ...props
 }: PencilCanvasProps) {
@@ -129,7 +127,6 @@ export function PencilCanvas({
       redo: () => native().redo(),
       save: async () => SaveResult.parse(await native().save()),
       debugFillStrokes: (count, mixed) => native().debugFillStrokes(count, mixed),
-      toolFeedback: (location) => native().toolFeedback(location),
       debugPencilAction: (kind) => native().debugPencilAction(kind),
     };
   }, []);
@@ -145,6 +142,7 @@ export function PencilCanvas({
       onPageSwipe={forward("onPageSwipe", PageSwipeEvent, onPageSwipe)}
       onToolUsage={forward("onToolUsage", ToolUsageEvent, onToolUsage)}
       onHistoryGesture={forward("onHistoryGesture", HistoryGestureEvent, onHistoryGesture)}
+      onToolFeedback={forward("onToolFeedback", ToolFeedbackEvent, onToolFeedback)}
     />
   );
 }

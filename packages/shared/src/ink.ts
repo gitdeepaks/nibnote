@@ -30,6 +30,11 @@ export function widthRange(ink: InkType | "marker"): WidthRange {
  */
 export const ERASER_WIDTH_RANGE: WidthRange = { min: 16.4, max: 80 };
 
+/** A width as VoiceOver should say it ("3.0 points"; "pt" would be spelled out letter by letter). */
+export function spokenWidth(width: number): string {
+  return `${width.toFixed(1)} points`;
+}
+
 /** Clamps a width into `range` and rounds it to 0.1 pt, so a preset and the width compare equal. */
 export function clampWidth(width: number, range: WidthRange): number {
   const clamped = Math.min(range.max, Math.max(range.min, width));

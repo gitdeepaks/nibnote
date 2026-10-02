@@ -5,7 +5,8 @@ import ExpoModulesCore
 public final class PencilCanvasModule: Module {
     static let moduleName = "PencilCanvas"
     private static let viewEvents = [
-        "onDrawingChanged", "onPencilAction", "onCanvasError", "onPageSwipe", "onToolUsage", "onHistoryGesture"
+        "onDrawingChanged", "onPencilAction", "onCanvasError", "onPageSwipe", "onToolUsage", "onHistoryGesture",
+        "onToolFeedback"
     ]
     /// Rebuilds thumbnails for pages that aren't on a canvas (after iOS purges the Caches folder).
     /// An actor, so the Sendable module function can share it without capturing the module.
@@ -74,9 +75,6 @@ public final class PencilCanvasModule: Module {
             }.runOnQueue(.main)
             AsyncFunction("save") { (view: PencilCanvasView, promise: Promise) in
                 MainActor.assumeIsolated { view.save(resolving: promise) }
-            }.runOnQueue(.main)
-            AsyncFunction("toolFeedback") { (view: PencilCanvasView, location: CanvasPointRecord?) in
-                MainActor.assumeIsolated { view.toolFeedback(at: location) }
             }.runOnQueue(.main)
             AsyncFunction("debugFillStrokes") { (view: PencilCanvasView, count: Int, mixed: Bool) in
                 MainActor.assumeIsolated { view.debugFillStrokes(count: count, mixed: mixed) }

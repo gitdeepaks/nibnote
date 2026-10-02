@@ -26,6 +26,8 @@ final class PencilCanvasView: ExpoView {
     let onPageSwipe = EventDispatcher()
     let onToolUsage = EventDispatcher()
     let onHistoryGesture = EventDispatcher()
+    /// Development builds only: the Pencil Pro haptic was played (so it can be checked on any Pencil).
+    let onToolFeedback = EventDispatcher()
 
     let canvasView = PageCanvasView()
     let store = DrawingStore()
@@ -83,6 +85,10 @@ final class PencilCanvasView: ExpoView {
     var lastTouchInContent: CGPoint?
     /// A light tap for tool changes made with the Pencil; only Apple Pencil Pro plays it.
     private(set) lazy var toolFeedbackGenerator = UIImpactFeedbackGenerator(style: .light, view: self)
+    /// Watches Pencil touches in the whole window (see `ToolFeedbackRule`).
+    let pencilTouchObserver = PencilTouchObserver()
+    /// The last Pencil tap outside the page, or double-tap or squeeze, that may change the tool.
+    var lastPencilEvent: PencilEvent?
 
     required init(appContext: AppContext? = nil) {
         super.init(appContext: appContext)
@@ -102,6 +108,7 @@ final class PencilCanvasView: ExpoView {
         installPageSwipes()
         installHighlighterEraser()
         installFingerTaps()
+        installToolFeedback()
         // VoiceOver claims every touch for navigation (tap selects, double-tap activates), so without
         // this nothing could be written with it on. Direct interaction passes touches on the page
         // straight to PencilKit, as Apple intends for drawing surfaces.
@@ -118,6 +125,12 @@ final class PencilCanvasView: ExpoView {
         super.layoutSubviews()
         canvasView.frame = bounds
         surface.viewportDidChange(to: bounds.size)
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        pencilTouchObserver.view?.removeGestureRecognizer(pencilTouchObserver)
+        window?.addGestureRecognizer(pencilTouchObserver)
     }
 
     override func willMove(toWindow newWindow: UIWindow?) {
@@ -165,8 +178,10 @@ final class PencilCanvasView: ExpoView {
             canvasView.drawingPolicy = drawingPolicy
         }
         if appliedTool != tool {
+            let previous = appliedTool
             canvasView.tool = ToolMapping.pkTool(for: tool)
             appliedTool = tool
+            playToolFeedback(after: previous)
         }
         applyHighlighterEraser()
         applyToolPickerVisibility()
