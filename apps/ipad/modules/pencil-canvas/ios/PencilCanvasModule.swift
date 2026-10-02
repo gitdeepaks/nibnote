@@ -23,6 +23,18 @@ public final class PencilCanvasModule: Module {
             try await Self.renderThumbnail(pageId: id, drawingUri: uri, pageSize: size, template: template)
         }
 
+        Self.pencilCanvasView()
+
+        // The toolbar's ink preview: one sample stroke in the real PencilKit ink.
+        View(StrokePreviewView.self) {
+            Prop("tool") { (view: StrokePreviewView, value: ToolRecord) in
+                view.setTool(value)
+            }
+        }
+    }
+
+    /// The page canvas: props in, events out, and the functions the editor calls on it.
+    private static func pencilCanvasView() -> ViewDefinition<PencilCanvasView> {
         View(PencilCanvasView.self) {
             Events(Self.viewEvents)
 
@@ -63,16 +75,15 @@ public final class PencilCanvasModule: Module {
             AsyncFunction("save") { (view: PencilCanvasView, promise: Promise) in
                 MainActor.assumeIsolated { view.save(resolving: promise) }
             }.runOnQueue(.main)
+            AsyncFunction("toolFeedback") { (view: PencilCanvasView, location: CanvasPointRecord?) in
+                MainActor.assumeIsolated { view.toolFeedback(at: location) }
+            }.runOnQueue(.main)
             AsyncFunction("debugFillStrokes") { (view: PencilCanvasView, count: Int, mixed: Bool) in
                 MainActor.assumeIsolated { view.debugFillStrokes(count: count, mixed: mixed) }
             }.runOnQueue(.main)
-        }
-
-        // The toolbar's ink preview: one sample stroke in the real PencilKit ink.
-        View(StrokePreviewView.self) {
-            Prop("tool") { (view: StrokePreviewView, value: ToolRecord) in
-                view.setTool(value)
-            }
+            AsyncFunction("debugPencilAction") { (view: PencilCanvasView, kind: String) in
+                MainActor.assumeIsolated { view.debugPencilAction(kind: kind) }
+            }.runOnQueue(.main)
         }
     }
 

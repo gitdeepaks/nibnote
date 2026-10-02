@@ -13,6 +13,7 @@ extension PencilCanvasView {
         }
         highlighterEraser.onEnd = { [weak self] before, changed in
             guard let self else { return }
+            lastTouchInContent = highlighterEraser.lastLocation
             if changed { registerEraseUndo(restoring: before) }
             emitToolUsage(active: false)
         }

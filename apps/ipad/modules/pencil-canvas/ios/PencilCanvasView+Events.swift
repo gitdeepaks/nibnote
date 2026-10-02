@@ -30,17 +30,6 @@ extension PencilCanvasView: PKCanvasViewDelegate {
     }
 }
 
-extension PencilCanvasView: UIPencilInteractionDelegate {
-    func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveTap tap: UIPencilInteraction.Tap) {
-        emitPencilAction(kind: "tap", preferred: UIPencilInteraction.preferredTapAction)
-    }
-
-    func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveSqueeze squeeze: UIPencilInteraction.Squeeze) {
-        guard squeeze.phase == .ended else { return }
-        emitPencilAction(kind: "squeeze", preferred: UIPencilInteraction.preferredSqueezeAction)
-    }
-}
-
 extension PencilCanvasView {
     /// Coalesces bursts (stroke end + undo registration + save) into one event on the next
     /// main-actor turn, after PencilKit has registered the undo action.
@@ -91,13 +80,5 @@ extension PencilCanvasView {
         record.pageId = pageId
         record.active = active
         onToolUsage(record)
-    }
-
-    private func emitPencilAction(kind: String, preferred: UIPencilPreferredAction) {
-        let record = PencilActionRecord()
-        record.pageId = pageId
-        record.kind = kind
-        record.preferredAction = PencilActions.name(for: preferred)
-        onPencilAction(record)
     }
 }

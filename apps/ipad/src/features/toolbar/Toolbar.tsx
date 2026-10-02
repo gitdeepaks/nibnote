@@ -77,12 +77,20 @@ type ToolbarProps = {
   /** Writing: show the pill instead of the toolbar. */
   readonly collapsed: boolean;
   readonly onExpand: () => void;
+  /** Changes when something else opens at the Pencil (its palette or options): any popover here closes. */
+  readonly dismissPopovers: number;
 };
 
-export function Toolbar({ canUndo, canRedo, onUndo, onRedo, collapsed, onExpand }: ToolbarProps) {
+export function Toolbar({ canUndo, canRedo, onUndo, onRedo, collapsed, onExpand, dismissPopovers }: ToolbarProps) {
   const toolbox = useToolbox((state) => state.toolbox);
   const actions = useToolbox((state) => state.actions);
   const [open, setOpen] = useState<OpenPopover>(null);
+  // Only one thing is open at a time: the Pencil's palette replaces a toolbar popover.
+  const [seenDismiss, setSeenDismiss] = useState(dismissPopovers);
+  if (seenDismiss !== dismissPopovers) {
+    setSeenDismiss(dismissPopovers);
+    setOpen(null);
+  }
   const [available, setAvailable] = useState(FULL_LENGTH);
   // The last colour from the system picker; it joins the recent colours when the popover closes.
   const systemPick = useRef<HexColor | null>(null);

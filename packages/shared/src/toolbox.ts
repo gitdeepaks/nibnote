@@ -271,7 +271,7 @@ export function canvasToolFor(toolbox: Toolbox): CanvasTool {
 
 /**
  * The toolbox after an Apple Pencil double-tap or squeeze, following the user's system setting.
- * The palette actions open UI instead (Phase 3 M3), so they leave the tools as they are.
+ * The palette actions open UI instead (`pencilResponse` in pencil.ts), so they leave the tools as they are.
  */
 export function afterPencilAction(toolbox: Toolbox, action: PencilPreferredAction): Toolbox {
   switch (action) {

@@ -25,6 +25,8 @@ final class HighlighterEraserInput: NSObject, UIGestureRecognizerDelegate {
 
     private let canvasView: PageCanvasView
     private let gesture = UILongPressGestureRecognizer()
+    /// Shows the eraser under a hovering Pencil, like PencilKit's own tool preview.
+    private let hover = UIHoverGestureRecognizer()
     private let cursor = CAShapeLayer()
     private let defaultPanTouchTypes: [NSNumber]
     private let defaultPanMinimumTouches: Int
@@ -34,6 +36,8 @@ final class HighlighterEraserInput: NSObject, UIGestureRecognizerDelegate {
     private var lastPoint: CGPoint?
     /// Whether the touch erasing now is a finger (only when fingers draw), not the Pencil.
     private var erasingWithFinger = false
+    /// Where the eraser last touched, in the canvas's scrolling content.
+    private(set) var lastLocation: CGPoint?
     private var pending: [CGPoint] = []
     private var displayLink: CADisplayLink?
     /// The page indexed ahead of the next gesture, for the drawing version it was built from.
@@ -55,6 +59,9 @@ final class HighlighterEraserInput: NSObject, UIGestureRecognizerDelegate {
         gesture.delegate = self
         gesture.isEnabled = false
         canvasView.addGestureRecognizer(gesture)
+        hover.addTarget(self, action: #selector(handleHover(_:)))
+        hover.isEnabled = false
+        canvasView.addGestureRecognizer(hover)
         cursor.fillColor = UIColor(white: 1, alpha: 0.35).cgColor
         cursor.strokeColor = UIColor(white: 0.45, alpha: 0.9).cgColor
         cursor.lineWidth = 1
@@ -77,6 +84,8 @@ final class HighlighterEraserInput: NSObject, UIGestureRecognizerDelegate {
         configuration = next
         if next != nil { schedulePrepare() }
         gesture.isEnabled = next != nil
+        hover.isEnabled = next != nil
+        if next == nil { cursor.isHidden = true }
         let pencil = NSNumber(value: UITouch.TouchType.pencil.rawValue)
         let finger = NSNumber(value: UITouch.TouchType.direct.rawValue)
         gesture.allowedTouchTypes = policy == .anyInput ? [pencil, finger] : [pencil]
@@ -144,14 +153,34 @@ final class HighlighterEraserInput: NSObject, UIGestureRecognizerDelegate {
     @objc private func handle(_ recognizer: UILongPressGestureRecognizer) {
         switch recognizer.state {
         case .began:
+            lastLocation = recognizer.location(in: canvasView)
             begin(at: recognizer.location(in: canvasView))
         case .changed:
+            lastLocation = recognizer.location(in: canvasView)
             pending.append(drawingPoint(recognizer.location(in: canvasView)))
             showCursor(at: recognizer.location(in: canvasView))
         case .ended, .cancelled, .failed:
             finish(applyPending: true)
         default:
             break
+        }
+    }
+
+    /// A hovering Pencil (iPads with hover only) previews the eraser where it would touch, when the
+    /// user has "Show Tool Preview" on in Settings, as PencilKit does for its own tools. A trackpad
+    /// pointer also hovers but reports no height above the screen, so it shows nothing.
+    @objc private func handleHover(_ recognizer: UIHoverGestureRecognizer) {
+        // While erasing, the eraser gesture draws the cursor itself.
+        guard session == nil else { return }
+        switch recognizer.state {
+        case .began, .changed:
+            if recognizer.zOffset > 0, UIPencilInteraction.prefersHoverToolPreview {
+                showCursor(at: recognizer.location(in: canvasView))
+            } else {
+                cursor.isHidden = true
+            }
+        default:
+            cursor.isHidden = true
         }
     }
 

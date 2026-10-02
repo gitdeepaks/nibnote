@@ -78,6 +78,11 @@ final class PencilCanvasView: ExpoView {
     var drawingVersion = 0
     /// A stroke, erase or lasso is touching the page (between the begin and end of `onToolUsage`).
     var isToolInUse = false
+    /// Where a tool last lifted from this page, in the canvas's scrolling content, so it still
+    /// points at the same spot after a scroll or zoom.
+    var lastTouchInContent: CGPoint?
+    /// A light tap for tool changes made with the Pencil; only Apple Pencil Pro plays it.
+    private(set) lazy var toolFeedbackGenerator = UIImpactFeedbackGenerator(style: .light, view: self)
 
     required init(appContext: AppContext? = nil) {
         super.init(appContext: appContext)
@@ -89,6 +94,7 @@ final class PencilCanvasView: ExpoView {
         canvasView.drawingPolicy = drawingPolicy
         canvasView.delegate = self
         canvasView.drawingGestureRecognizer.isEnabled = false
+        canvasView.drawingGestureRecognizer.addTarget(self, action: #selector(trackDrawingTouch(_:)))
         addSubview(canvasView)
         _ = surface
         pencilInteraction.delegate = self

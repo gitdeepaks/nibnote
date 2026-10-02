@@ -1,5 +1,6 @@
 export {
   CanvasErrorCode,
+  CanvasPoint,
   CanvasErrorEvent,
   CanvasTool,
   DrawingChangedEvent,
@@ -100,3 +101,19 @@ export {
   type ToolSlots,
   type TrioIndex,
 } from "./toolbox";
+export {
+  hasToolOptions,
+  isPaletteItemSelected,
+  PALETTE_ITEM,
+  PALETTE_MARGIN,
+  PALETTE_RADIUS,
+  paletteItems,
+  pencilResponse,
+  popoverSideAt,
+  radialLayout,
+  type AreaSize,
+  type PaletteItem,
+  type PaletteLayout,
+  type PencilResponse,
+  type PencilSurface,
+} from "./pencil";

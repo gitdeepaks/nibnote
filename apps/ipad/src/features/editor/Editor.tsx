@@ -1,5 +1,9 @@
 import {
   canvasToolFor,
+  hasToolOptions,
+  pencilResponse,
+  type AreaSize,
+  type CanvasPoint,
   type Notebook,
   type NotebookId,
   type Page,
@@ -7,10 +11,11 @@ import {
   type HistoryGestureEvent,
   type PageSwipeEvent,
   type PencilActionEvent,
+  type PencilSurface,
 } from "@nibnote/shared";
 import { router, Stack } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, Easing, Text, View } from "react-native";
+import { Alert, Animated, AppState, Easing, Text, View } from "react-native";
 import { PencilCanvas, type PencilCanvasRef } from "../../../modules/pencil-canvas";
 import { EmptyState, LoadingState } from "../../components/EmptyState";
 import { anchorOf } from "../../components/popoverAnchor";
@@ -34,9 +39,21 @@ import { lastOpenMs, stopOpenTimer } from "./openTimer";
 import { addPageAfter, showPageActions, type PageActionContext } from "./pageActions";
 import { PageGrid } from "./PageGrid";
 import { PageStrip } from "./PageStrip";
+import { RadialPalette } from "../pencil/RadialPalette";
+import { TipOptions } from "../pencil/TipOptions";
 import { Toolbar } from "../toolbar/Toolbar";
 import { useToolbox } from "../toolbar/ToolboxProvider";
 import { useToolbarCollapse } from "../toolbar/useToolbarCollapse";
+
+/** What is open at the Pencil's tip, for which page and page-area size. */
+type OpenAtPencil = {
+  /** Changes with every opening, so the palette animates in again. */
+  readonly id: number;
+  readonly surface: PencilSurface;
+  readonly point: CanvasPoint | null;
+  readonly pageId: PageId;
+  readonly area: AreaSize;
+};
 
 /** Missing, trashed or malformed notebook: shown for bad deep links and for notebooks trashed meanwhile. */
 export function NotebookNotFound() {
@@ -175,6 +192,11 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
   const [stripOpen, setStripOpen] = useState(stripPreference.open);
   const [showingGrid, setShowingGrid] = useState(false);
   const [historyNotice, setHistoryNotice] = useState<HistoryNotice | null>(null);
+  // The page area (the canvas and everything over it), where the Pencil's palette is placed.
+  const [area, setArea] = useState<AreaSize>({ width: 0, height: 0 });
+  const [pencilOpen, setPencilOpen] = useState<OpenAtPencil | null>(null);
+  // Bumped when something opens at the Pencil, so a toolbar popover closes.
+  const [toolbarDismiss, setToolbarDismiss] = useState(0);
   const [turn] = useState(() => ({
     offset: new Animated.Value(0),
     opacity: new Animated.Value(1),
@@ -183,6 +205,16 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
   useEffect(() => {
     repository.pages.rememberOpenPage(notebook.id, page.id);
   }, [repository, notebook.id, page.id]);
+
+  // Leaving the app closes whatever is open at the Pencil.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state !== "active") setPencilOpen(null);
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   // Events carry their page, so a late event from the previous page never shows on this one.
   const canUndo = history.pageId === page.id && history.canUndo;
@@ -196,10 +228,6 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
       action: event.action,
       applied: event.applied,
     }));
-  };
-
-  const handlePencilAction = (event: PencilActionEvent) => {
-    toolActions.applyPencilAction(event.preferredAction);
   };
 
   const pageActions = (): PageActionContext => ({
@@ -241,6 +269,49 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
         console.error(`${label} failed`, error instanceof Error ? error.message : String(error));
       }
     })();
+  };
+
+  // A palette or options popover belongs to the page and window size it opened for: turning the
+  // page, resizing or rotating closes it.
+  const atPencil =
+    pencilOpen !== null &&
+    pencilOpen.pageId === page.id &&
+    pencilOpen.area.width === area.width &&
+    pencilOpen.area.height === area.height
+      ? pencilOpen
+      : null;
+
+  const openAtPencil = (surface: PencilSurface, point: CanvasPoint | null) => {
+    setPencilOpen((previous) => ({ id: (previous?.id ?? 0) + 1, surface, point, pageId: page.id, area }));
+    setToolbarDismiss((count) => count + 1);
+  };
+
+  const pencilFeedback = (at: CanvasPoint | null) => {
+    run("Pencil feedback", (canvas) => canvas.toolFeedback(at));
+  };
+
+  const handlePencilAction = (event: PencilActionEvent) => {
+    if (event.pageId !== page.id) return;
+    const response = pencilResponse(event.kind, event.preferredAction, atPencil?.surface ?? null);
+    switch (response.kind) {
+      case "switchTool":
+        toolActions.applyPencilAction(response.action);
+        pencilFeedback(event.location);
+        if (!response.keepOpen) setPencilOpen(null);
+        return;
+      case "open":
+        if (response.surface === "options" && !hasToolOptions(toolbox)) {
+          setPencilOpen(null);
+          return;
+        }
+        openAtPencil(response.surface, event.location);
+        return;
+      case "close":
+        setPencilOpen(null);
+        return;
+      case "none":
+        return;
+    }
   };
 
   if (showingGrid) {
@@ -327,6 +398,16 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
               ))}
             {__DEV__ && (
               <Stack.Toolbar.MenuAction
+                icon="hand.pinch"
+                onPress={() => {
+                  run("Simulate squeeze", (canvas) => canvas.debugPencilAction("squeeze"));
+                }}
+              >
+                Simulate Apple Pencil squeeze
+              </Stack.Toolbar.MenuAction>
+            )}
+            {__DEV__ && (
+              <Stack.Toolbar.MenuAction
                 icon="highlighter"
                 onPress={() => {
                   run("Fill strokes", (canvas) => canvas.debugFillStrokes(2000, true));
@@ -361,7 +442,13 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
             }}
           />
         )}
-        <View style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
+        <View
+          style={{ flex: 1, backgroundColor: colors.groupedBackground }}
+          onLayout={(event) => {
+            const { width, height } = event.nativeEvent.layout;
+            setArea({ width, height });
+          }}
+        >
           <Animated.View
             style={{
               flex: 1,
@@ -411,6 +498,7 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
             }}
             collapsed={toolbarCollapse.collapsed}
             onExpand={toolbarCollapse.expand}
+            dismissPopovers={toolbarDismiss}
           />
           <View pointerEvents="box-none" style={{ position: "absolute", top: 12, left: 0, right: 0, gap: 8 }}>
             <Text
@@ -442,6 +530,30 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
             )}
           </View>
           {historyNotice !== null && <HistoryHud notice={historyNotice} dock={toolbox.dock} />}
+          {atPencil?.surface === "palette" && (
+            <RadialPalette
+              key={atPencil.id}
+              point={atPencil.point}
+              area={area}
+              onPicked={pencilFeedback}
+              onOptions={() => {
+                openAtPencil("options", atPencil.point);
+              }}
+              onClose={() => {
+                setPencilOpen(null);
+              }}
+            />
+          )}
+          {atPencil?.surface === "options" && (
+            <TipOptions
+              key={atPencil.id}
+              point={atPencil.point}
+              area={area}
+              onClose={() => {
+                setPencilOpen(null);
+              }}
+            />
+          )}
         </View>
       </View>
     </>

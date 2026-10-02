@@ -103,11 +103,23 @@ export const PencilPreferredAction = z.enum([
 ]);
 export type PencilPreferredAction = z.infer<typeof PencilPreferredAction>;
 
+// A point in the canvas view, in points from its top-left corner (the same space as the view's layout)
+export const CanvasPoint = z
+  .object({
+    x: z.number(),
+    y: z.number(),
+  })
+  .readonly();
+export type CanvasPoint = z.infer<typeof CanvasPoint>;
+
 export const PencilActionEvent = z
   .object({
     pageId: PageId,
     kind: z.enum(["tap", "squeeze"]),
     preferredAction: PencilPreferredAction,
+    // Where the Pencil is: its hover position, else where it last touched the page if that is still
+    // on screen; null when neither is known
+    location: CanvasPoint.nullable(),
   })
   .readonly();
 export type PencilActionEvent = z.infer<typeof PencilActionEvent>;
