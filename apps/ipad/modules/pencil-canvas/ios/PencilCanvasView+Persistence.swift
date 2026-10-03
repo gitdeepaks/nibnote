@@ -49,6 +49,7 @@ extension PencilCanvasView {
             replaceDrawing(with: outcome.drawing)
             pageState = .ready
             updateDrawingGesture()
+            scheduleKeyboardPrewarm()
             if outcome.recoveredFromBackup {
                 emitError(
                     code: "recoveredFromBackup", message: "The page file was damaged; loaded the last good version")

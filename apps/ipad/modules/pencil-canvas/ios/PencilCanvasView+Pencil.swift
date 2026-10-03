@@ -100,3 +100,37 @@ struct PencilEvent {
     /// "touch", "tap" (double-tap) or "squeeze", for the development report.
     let source: String
 }
+
+/// The lasso's first selection after launch (see `KeyboardPrewarm`).
+extension PencilCanvasView {
+    /// Looks for a quiet moment, a second at a time, once a page is ready. A page that never gets one
+    /// (or VoiceOver, or an active selection) leaves it for the next page.
+    func scheduleKeyboardPrewarm() {
+        guard !KeyboardPrewarmer.isDone, keyboardPrewarm == nil else { return }
+        keyboardPrewarm = Task { [weak self] in
+            await self?.prewarmKeyboardWhenQuiet()
+            self?.keyboardPrewarm = nil
+        }
+    }
+
+    private func prewarmKeyboardWhenQuiet() async {
+        for _ in 0..<KeyboardPrewarm.maximumAttempts {
+            try? await Task.sleep(for: .seconds(1))
+            guard let window, !Task.isCancelled else { return }
+            let decision = KeyboardPrewarm.decide(
+                alreadyDone: KeyboardPrewarmer.isDone,
+                voiceOverRunning: UIAccessibility.isVoiceOverRunning,
+                toolInUse: isToolInUse,
+                textInputActive: UIResponder.currentFirstResponder() is any UITextInput)
+            switch decision {
+            case .run:
+                await KeyboardPrewarmer.run(in: window)
+                return
+            case .skip:
+                return
+            case .retry:
+                continue
+            }
+        }
+    }
+}

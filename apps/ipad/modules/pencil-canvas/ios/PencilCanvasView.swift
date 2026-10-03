@@ -89,6 +89,8 @@ final class PencilCanvasView: ExpoView {
     let pencilTouchObserver = PencilTouchObserver()
     /// The last Pencil tap outside the page, or double-tap or squeeze, that may change the tool.
     var lastPencilEvent: PencilEvent?
+    /// Waits for a quiet moment to wake the keyboard machinery (see `KeyboardPrewarm`).
+    var keyboardPrewarm: Task<Void, Never>?
 
     required init(appContext: AppContext? = nil) {
         super.init(appContext: appContext)
