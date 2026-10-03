@@ -751,6 +751,19 @@ Phase 3 is built in eight milestones, each its own PR with a device check: M1 to
   - One stall of about 275 ms (three back-to-back "potential interaction delays", 65–114 ms each) came from PencilKit's lasso, not the palette. Of the main thread's samples, 79% were iOS reloading the keyboard's input views (`UIKeyboardSceneDelegate setInputViews`) as the lasso's selection made the canvas first responder, 7% were `PKSelectionController lassoSelectStrokesInDrawing`, and our code was about 1%.
   - M4 starts by measuring and reducing this; emptying the canvas's `inputAssistantItem` is the first idea to try.
 
+- **M4 split in two (Oct 3, 2026).** M4a: the lasso's stall, its edit actions checked, and keyboard shortcuts. M4b: "duplicate to another page". Resize and recolour stay in the M5 spike.
+- **M4 spike (Oct 3, 2026), on the iPad with a frame-gap logger and development menu actions:**
+  - PencilKit's lasso already selects, drags and shows the system edit menu (Cut, Copy, Delete, Duplicate, Insert Space Above, Writing Tools), and pastes from a tap on empty paper.
+  - The menu can't carry our own item: three ways failed (`buildMenu(with:)` after the standard edit menu and at the end of the root menu, and the old `UIMenuController.menuItems`). M4b therefore gets its own control.
+  - Edit actions do run from code, sent to the first responder (`UIApplication.sendAction`). On the canvas itself `copy:`, `cut:`, `delete:` and `duplicate:` all report unavailable, because PencilKit's own views hold the selection: the first responder is `PKSelectionView` with a selection and `PKTiledView` without. `duplicate:` sent this way added the selected strokes (56 → 63) as one undo step.
+  - Copying leaves no drawing on the pasteboard that can be read back at once, so M4b will find the selection by running `duplicate:` and comparing the strokes before and after, which also leaves the user's clipboard alone.
+- **M4a (Oct 3, 2026). Why the lasso stalls, and what was done.** `PKSelectionView` takes text input (it is `UITextInput`, for Writing Tools), so each time a selection makes it first responder iOS sets its keyboard input views again, though no keyboard shows. In Instruments about 82% of the main thread's time in those moments is `UIKeyboardSceneDelegate setInputViews`; our code is about 1%.
+  - Every selection costs about 45 ms (36–52 ms across 30 selections), inside PencilKit. Making the canvas first responder beforehand, or emptying the input assistant of the canvas and its subviews, changed nothing: each selection creates a new `PKSelectionView`.
+  - The first selection after launch cost much more: about 275 ms (M3 closure, Release). `KeyboardPrewarmer` now makes an invisible text field with an empty input view first responder for 300 ms, once per launch, a second after the first page is ready and only while nothing is happening (`KeyboardPrewarm`, Core, tested: never with VoiceOver, never over an active selection or text field, waits while a tool is in use; the previous first responder gets focus back). Nothing shows on screen, with or without a hardware keyboard. With it the first selection measured about 114 ms. A read-only text view, closer to `PKSelectionView`, measured no better (137 ms).
+  - What remains is PencilKit's own cost. M5's custom lasso won't use `PKSelectionView`, so its spike measures the same moment again.
+- **Lasso checked on the device (M4a):** drag, Duplicate, Delete, and Cut then Paste on another page each undo in one step (two-finger tap); a move is saved when the notebook closes; double-tap, page swipes and the highlighter-only eraser work with a selection active. With a Magic Keyboard, ⌘Z, ⇧⌘Z, ⌘C, ⌘V and Delete work on the page, and no shortcut bar appears.
+- **Budget after M4a:** no JavaScript changed, so the bundle is unchanged (4,016,158 bytes in Release).
+
 **Exit criteria**
 
 - [ ] Switch pen → red highlighter → eraser → pen in under 2 seconds without looking at the toolbar
