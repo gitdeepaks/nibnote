@@ -156,6 +156,35 @@ export const ToolFeedbackEvent = z
   .readonly();
 export type ToolFeedbackEvent = z.infer<typeof ToolFeedbackEvent>;
 
+// The lasso gained or lost a selection (PencilKit has no API for it; the canvas works it out)
+export const SelectionChangedEvent = z
+  .object({
+    pageId: PageId,
+    hasSelection: z.boolean(),
+  })
+  .readonly();
+export type SelectionChangedEvent = z.infer<typeof SelectionChangedEvent>;
+
+// What copying the lasso's selection to another page did; zero strokes means nothing was selected
+export const SelectionCopyResult = z
+  .object({
+    strokeCount: z.number().int().nonnegative(),
+  })
+  .readonly();
+export type SelectionCopyResult = z.infer<typeof SelectionCopyResult>;
+
+// Whether the last copy was taken back off its page (false: nothing to undo, or that page has changed)
+export const SelectionUndoResult = z.object({ undone: z.boolean() }).readonly();
+export type SelectionUndoResult = z.infer<typeof SelectionUndoResult>;
+
+// The page a selection is copied to: where its drawing lives and what its thumbnail needs
+export type SelectionTarget = {
+  readonly pageId: PageId;
+  readonly drawingFileUri: FileUri;
+  readonly pageSize: PageSize;
+  readonly template: PageTemplate;
+};
+
 // A one-finger swipe on the page: left turns to the next page, right to the previous one
 export const PageSwipeEvent = z
   .object({

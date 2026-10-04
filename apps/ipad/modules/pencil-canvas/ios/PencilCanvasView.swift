@@ -28,6 +28,7 @@ final class PencilCanvasView: ExpoView {
     let onHistoryGesture = EventDispatcher()
     /// Development builds only: the Pencil Pro haptic was played (so it can be checked on any Pencil).
     let onToolFeedback = EventDispatcher()
+    let onSelectionChanged = EventDispatcher()
 
     let canvasView = PageCanvasView()
     let store = DrawingStore()
@@ -91,6 +92,11 @@ final class PencilCanvasView: ExpoView {
     var lastPencilEvent: PencilEvent?
     /// Waits for a quiet moment to wake the keyboard machinery (see `KeyboardPrewarm`).
     var keyboardPrewarm: Task<Void, Never>?
+    /// Whether JS was last told the lasso holds a selection, and the late re-check after a change.
+    var reportedSelection = false
+    var selectionCheck: Task<Void, Never>?
+    /// The last copy of a selection to another page, kept so it can be undone from this page.
+    var lastSelectionCopy: SentSelection?
 
     required init(appContext: AppContext? = nil) {
         super.init(appContext: appContext)
@@ -184,6 +190,7 @@ final class PencilCanvasView: ExpoView {
             canvasView.tool = ToolMapping.pkTool(for: tool)
             appliedTool = tool
             playToolFeedback(after: previous)
+            selectionMayHaveChanged()
         }
         applyHighlighterEraser()
         applyToolPickerVisibility()

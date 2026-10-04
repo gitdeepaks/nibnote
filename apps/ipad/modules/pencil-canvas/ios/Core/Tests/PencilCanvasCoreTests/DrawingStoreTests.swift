@@ -188,6 +188,28 @@ final class DrawingStoreTests: XCTestCase {
         let median = try XCTUnwrap(durations.sorted()[safe: 2])
         XCTAssertLessThan(median, .milliseconds(150), "median save took \(median)")
     }
+
+    func testFileHashMatchesTheSaveAndFollowsTheFile() async throws {
+        let store = DrawingStore(sandboxRoot: root)
+        let missing = try await store.fileHash(at: drawingURL)
+        XCTAssertNil(missing, "a page never saved has no hash")
+        let saved = try await store.save(SyntheticStrokes.drawing(count: 5, pageSize: page), to: drawingURL)
+        let first = try await store.fileHash(at: drawingURL)
+        XCTAssertEqual(first, saved.sha256)
+        _ = try await store.save(SyntheticStrokes.drawing(count: 6, pageSize: page), to: drawingURL)
+        let second = try await store.fileHash(at: drawingURL)
+        XCTAssertNotEqual(second, saved.sha256)
+    }
+
+    func testFileHashRefusesPathsOutsideTheSandbox() async {
+        let store = DrawingStore(sandboxRoot: root)
+        do throws(DrawingStoreError) {
+            _ = try await store.fileHash(at: URL(fileURLWithPath: "/etc/hosts"))
+            XCTFail("expected outsideSandbox")
+        } catch {
+            XCTAssertEqual(error, .outsideSandbox)
+        }
+    }
 }
 
 private extension Array {

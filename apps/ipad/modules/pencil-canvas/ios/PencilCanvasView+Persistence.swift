@@ -28,6 +28,7 @@ extension PencilCanvasView {
         highlighterEraser.cancel()
         canvasView.drawingGestureRecognizer.isEnabled = false
         lastTouchInContent = nil
+        lastSelectionCopy = nil
         replaceDrawing(with: PKDrawing())
         let store = store
         Task { [weak self] in
@@ -119,7 +120,8 @@ extension PencilCanvasView {
         Task { _ = await perform(request) }
     }
 
-    private func perform(_ request: SaveRequest) async -> Result<SaveOutcome, DrawingStoreError> {
+    /// Writes a page (the one on screen, or another one) and tells JS, as every save does.
+    func perform(_ request: SaveRequest) async -> Result<SaveOutcome, DrawingStoreError> {
         let isCurrentPage = request.page == page
         if isCurrentPage {
             hasUnsavedChanges = false

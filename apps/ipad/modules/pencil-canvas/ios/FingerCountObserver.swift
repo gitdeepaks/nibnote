@@ -7,6 +7,8 @@ import UIKit.UIGestureRecognizerSubclass
 @MainActor
 final class FingerCountObserver: UIGestureRecognizer, UIGestureRecognizerDelegate {
     var onSecondFinger: () -> Void = {}
+    /// The last finger left the page.
+    var onAllLifted: () -> Void = {}
     private var fingers = 0
 
     init() {
@@ -43,6 +45,7 @@ final class FingerCountObserver: UIGestureRecognizer, UIGestureRecognizerDelegat
         fingers = max(0, fingers - count)
         if fingers == 0 {
             state = .failed
+            onAllLifted()
         }
     }
 
