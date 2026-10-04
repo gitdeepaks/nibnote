@@ -673,7 +673,7 @@ Goal: tool switching so fast you never think about it; from the end of this phas
 
 **Lasso**
 
-- [ ] Select, drag, resize, recolour, copy, cut, paste, delete, duplicate to another page
+- [ ] Select, drag, resize, recolour, copy, cut, paste, delete, duplicate to another page (M4a and M4b: everything except resize and recolour, which wait for the M5 spike)
 
 **Shapes and scrolling**
 
@@ -763,6 +763,14 @@ Phase 3 is built in eight milestones, each its own PR with a device check: M1 to
   - What remains is PencilKit's own cost. M5's custom lasso won't use `PKSelectionView`, so its spike measures the same moment again.
 - **Lasso checked on the device (M4a):** drag, Duplicate, Delete, and Cut then Paste on another page each undo in one step (two-finger tap); a move is saved when the notebook closes; double-tap, page swipes and the highlighter-only eraser work with a selection active. With a Magic Keyboard, ⌘Z, ⇧⌘Z, ⌘C, ⌘V and Delete work on the page, and no shortcut bar appears.
 - **Budget after M4a:** no JavaScript changed, so the bundle is unchanged (4,016,158 bytes in Release).
+- **M4b (Oct 4, 2026). "Duplicate to page" copies the lasso's selection to another page of the notebook**, in the same place, and leaves the page it came from untouched.
+  - **The control is ours.** A pill at the top of the page ("Duplicate to page…") shows only while the lasso holds a selection. It opens a picker over the page (the canvas stays mounted, since the selection only exists there) with "New page" and thumbnails of the other pages. Afterwards a notice says "Copied to page 3" with Undo for five seconds. The owner chose this over an item in the lasso's options, and staying on the page over jumping to the target.
+  - **Knowing there is a selection.** PencilKit has no API for it. A selection exists when the first responder takes text input and sits inside the canvas (`PKSelectionView` does; nothing else in the canvas does). PencilKit gives no notice when that changes, and it settles late, so the canvas looks whenever a touch leaves the page or the page or tool changes, and again 250, 600 and 1,200 ms later. (The first version looked once after 250 ms and only after tool use; on the iPad the pill stayed after a tap dismissed the selection.)
+  - **Finding the selected strokes.** The canvas runs PencilKit's own Duplicate (sent to the first responder), waits for the page to change (about 200 ms), and `SelectionCopy` (Core, tested) takes the strokes that were added. A duplicate keeps its original's path and creation date and only shifts its transform (by about 22 × 15 pt, measured), so each copy leads back to its original, and the originals are what is copied: same place, same mask. The page is then put back as it was. Undo registration is off during the probe, the canvas takes no touches, and nothing is saved, so the page keeps its undo and redo history exactly (checked on the iPad: the next undo removed the last pen stroke).
+  - **Writing the other page.** Its drawing is loaded, the strokes are added on top, moved as a group only if they would fall off a page of another size, and the page is saved through the same atomic write as any other save (previous version kept as `.bak`, thumbnail redrawn, `onDrawingSaved` sent, so the database sees a normal save).
+  - **Undo** puts the other page back as it was, only from the page the copy was made on and only if that file's hash is still the one the copy wrote (`DrawingStore.fileHash`, tested); otherwise it says the page has changed. A page added for the copy is moved to the trash again.
+  - **Checked on the iPad in four rounds:** the pill follows the selection (Pencil tap, finger tap, tool change, page change); copies land in the same place on existing and new pages; Undo, including removing the new page; a cut highlighter stroke arrives cut; a page of another size receives the selection inside its bounds; the copy survives closing the notebook; the source page's undo and redo are unaffected; the system edit menu still works; the undo notice sits below the pill; the toolbar docked at the top doesn't overlap it.
+  - **Budget after M4b:** +14.3 KB (3,994,121 → 4,008,380 bytes, same pipeline as before), so the Release bundle is about 4.03 MB; reviewed in Phase 8 per the owner's decision.
 
 **Exit criteria**
 

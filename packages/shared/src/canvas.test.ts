@@ -6,6 +6,9 @@ import {
   FileUri,
   HexColor,
   HistoryGestureEvent,
+  SelectionChangedEvent,
+  SelectionCopyResult,
+  SelectionUndoResult,
   ToolFeedbackEvent,
   PAGE_SIZES,
   PageSize,
@@ -254,5 +257,32 @@ describe("ToolFeedbackEvent", () => {
       expect(ToolFeedbackEvent.parse({ pageId, source }).source).toBe(source);
     }
     expect(ToolFeedbackEvent.safeParse({ pageId, source: "finger" }).success).toBe(false);
+  });
+});
+
+describe("SelectionChangedEvent", () => {
+  test("parses the page and whether the lasso holds a selection", () => {
+    expect(SelectionChangedEvent.parse({ pageId, hasSelection: true }).hasSelection).toBe(true);
+    expect(SelectionChangedEvent.safeParse({ pageId, hasSelection: "yes" }).success).toBe(false);
+    expect(SelectionChangedEvent.safeParse({ pageId }).success).toBe(false);
+  });
+});
+
+describe("SelectionCopyResult", () => {
+  test("carries how many strokes were copied; zero means nothing was selected", () => {
+    expect(SelectionCopyResult.parse({ strokeCount: 7 }).strokeCount).toBe(7);
+    expect(SelectionCopyResult.parse({ strokeCount: 0 }).strokeCount).toBe(0);
+  });
+
+  test("rejects negative and fractional counts", () => {
+    expect(SelectionCopyResult.safeParse({ strokeCount: -1 }).success).toBe(false);
+    expect(SelectionCopyResult.safeParse({ strokeCount: 1.5 }).success).toBe(false);
+  });
+});
+
+describe("SelectionUndoResult", () => {
+  test("says whether the copy was taken back", () => {
+    expect(SelectionUndoResult.parse({ undone: true }).undone).toBe(true);
+    expect(SelectionUndoResult.safeParse({ undone: "no" }).success).toBe(false);
   });
 });

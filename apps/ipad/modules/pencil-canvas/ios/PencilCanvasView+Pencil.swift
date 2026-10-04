@@ -33,6 +33,8 @@ extension PencilCanvasView {
         }
         pencilTouchObserver.onEnded = { [weak self] location, view in
             guard let self else { return }
+            // A Pencil tap makes or dismisses the lasso's selection.
+            selectionMayHaveChanged()
             // A Pencil lifting from the page is writing, not choosing a tool.
             if let view, view.isDescendant(of: canvasView) { return }
             lastPencilEvent = PencilEvent(

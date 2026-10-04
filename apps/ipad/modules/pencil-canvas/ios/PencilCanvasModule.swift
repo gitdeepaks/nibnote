@@ -6,7 +6,7 @@ public final class PencilCanvasModule: Module {
     static let moduleName = "PencilCanvas"
     private static let viewEvents = [
         "onDrawingChanged", "onPencilAction", "onCanvasError", "onPageSwipe", "onToolUsage", "onHistoryGesture",
-        "onToolFeedback"
+        "onToolFeedback", "onSelectionChanged"
     ]
     /// Rebuilds thumbnails for pages that aren't on a canvas (after iOS purges the Caches folder).
     /// An actor, so the Sendable module function can share it without capturing the module.
@@ -75,6 +75,12 @@ public final class PencilCanvasModule: Module {
             }.runOnQueue(.main)
             AsyncFunction("save") { (view: PencilCanvasView, promise: Promise) in
                 MainActor.assumeIsolated { view.save(resolving: promise) }
+            }.runOnQueue(.main)
+            AsyncFunction("copySelection") { (view: PencilCanvasView, page: SelectionTargetRecord, promise: Promise) in
+                MainActor.assumeIsolated { view.copySelection(to: page, resolving: promise) }
+            }.runOnQueue(.main)
+            AsyncFunction("undoSelectionCopy") { (view: PencilCanvasView, promise: Promise) in
+                MainActor.assumeIsolated { view.undoSelectionCopy(resolving: promise) }
             }.runOnQueue(.main)
             AsyncFunction("debugFillStrokes") { (view: PencilCanvasView, count: Int, mixed: Bool) in
                 MainActor.assumeIsolated { view.debugFillStrokes(count: count, mixed: mixed) }

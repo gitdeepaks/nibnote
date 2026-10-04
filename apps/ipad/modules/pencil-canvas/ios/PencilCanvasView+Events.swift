@@ -5,6 +5,7 @@ import UIKit
 extension PencilCanvasView: PKCanvasViewDelegate {
     func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
         drawingVersion += 1
+        selectionMayHaveChanged()
         highlighterEraser.drawingDidChange()
         guard !isReplacingDrawing, pageState == .ready else { return }
         hasUnsavedChanges = true
@@ -75,6 +76,7 @@ extension PencilCanvasView {
     }
 
     func emitToolUsage(active: Bool) {
+        if !active { selectionMayHaveChanged() }
         isToolInUse = active
         let record = ToolUsageRecord()
         record.pageId = pageId

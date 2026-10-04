@@ -96,9 +96,25 @@ actor DrawingStore {
         let start = clock.now
         let data = drawing.dataRepresentation()
         try Self.writeAtomically(data, to: url)
-        let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         return SaveOutcome(
-            fileURL: url, sha256: digest, strokeCount: drawing.strokes.count, duration: clock.now - start)
+            fileURL: url, sha256: Self.digest(of: data), strokeCount: drawing.strokes.count,
+            duration: clock.now - start)
+    }
+
+    /// The SHA-256 of the drawing file as it is on disk now (what `save` reported when it wrote it),
+    /// or nil when the page has no file yet.
+    func fileHash(at url: URL) throws(DrawingStoreError) -> String? {
+        guard SandboxPolicy.contains(url, root: sandboxRoot) else { throw .outsideSandbox }
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        do {
+            return Self.digest(of: try Data(contentsOf: url))
+        } catch {
+            throw .readFailed(error.localizedDescription)
+        }
+    }
+
+    private static func digest(of data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     private static func readDrawing(at url: URL) -> Result<PKDrawing, DrawingStoreError> {

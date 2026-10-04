@@ -43,6 +43,10 @@ extension PencilCanvasView {
         fingers.onSecondFinger = { [weak self] in
             self?.highlighterEraser.secondFingerDown()
         }
+        // A finger tap can dismiss the lasso's selection without any tool being used.
+        fingers.onAllLifted = { [weak self] in
+            self?.selectionMayHaveChanged()
+        }
         canvasView.addGestureRecognizer(fingers)
     }
 

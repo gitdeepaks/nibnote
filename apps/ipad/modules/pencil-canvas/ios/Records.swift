@@ -74,6 +74,30 @@ struct ToolFeedbackRecord: Record {
     @Field var source: String = "touch"
 }
 
+/// The lasso gained or lost a selection.
+struct SelectionChangedRecord: Record {
+    @Field var pageId: String = ""
+    @Field var hasSelection: Bool = false
+}
+
+/// The page a selection is copied to: where its drawing lives, and what its thumbnail needs.
+struct SelectionTargetRecord: Record {
+    @Field var pageId: String = ""
+    @Field var drawingFileUri: String = ""
+    @Field var pageSize = PageSizeRecord()
+    @Field var template = TemplateRecord()
+}
+
+/// How many strokes were copied; zero when nothing was selected.
+struct SelectionCopyResultRecord: Record {
+    @Field var strokeCount: Int = 0
+}
+
+/// Whether the last copy was taken back off its page.
+struct SelectionUndoResultRecord: Record {
+    @Field var undone: Bool = false
+}
+
 struct PageSwipeRecord: Record {
     @Field var pageId: String = ""
     /// "next" (swipe left) or "previous" (swipe right).
@@ -109,6 +133,12 @@ struct SaveResultRecord: Record {
 final class CanvasNotReadyException: Exception, @unchecked Sendable {
     override var reason: String {
         "The canvas has no writable page loaded yet"
+    }
+}
+
+final class InvalidSelectionTargetException: Exception, @unchecked Sendable {
+    override var reason: String {
+        "The page to copy the selection to is missing, invalid or the page on screen"
     }
 }
 

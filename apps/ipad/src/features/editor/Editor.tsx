@@ -12,6 +12,7 @@ import {
   type PageSwipeEvent,
   type PencilActionEvent,
   type PencilSurface,
+  type SelectionChangedEvent,
 } from "@nibnote/shared";
 import { router, Stack } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -21,6 +22,7 @@ import { EmptyState, LoadingState } from "../../components/EmptyState";
 import { anchorOf } from "../../components/popoverAnchor";
 import { useRepository } from "../../db/DatabaseProvider";
 import { drawingFileUri } from "../../db/files";
+import { reportFailure } from "../../db/reportFailure";
 import { useLiveRead } from "../../db/useLiveRead";
 import { colors } from "../../theme/colors";
 import { CanvasBanner } from "./CanvasBanner";
@@ -39,11 +41,25 @@ import { lastOpenMs, stopOpenTimer } from "./openTimer";
 import { addPageAfter, showPageActions, type PageActionContext } from "./pageActions";
 import { PageGrid } from "./PageGrid";
 import { PageStrip } from "./PageStrip";
+import { CopyNotice, type CopyNoticeState } from "../lasso/CopyNotice";
+import { PagePicker, type PagePickerChoice } from "../lasso/PagePicker";
+import { SelectionPill } from "../lasso/SelectionPill";
 import { RadialPalette } from "../pencil/RadialPalette";
 import { TipOptions } from "../pencil/TipOptions";
 import { Toolbar } from "../toolbar/Toolbar";
 import { useToolbox } from "../toolbar/ToolboxProvider";
 import { useToolbarCollapse } from "../toolbar/useToolbarCollapse";
+
+/** What "Duplicate to page" last did on a page, and how to take it back while that is possible. */
+type CopiedSelection = CopyNoticeState & {
+  readonly pageId: PageId;
+  readonly undo: {
+    /** "page 3" or "a new page", for the notices. */
+    readonly label: string;
+    /** The page added for this copy, removed again when the copy is undone. */
+    readonly createdPageId: PageId | null;
+  } | null;
+};
 
 /** What is open at the Pencil's tip, for which page and page-area size. */
 type OpenAtPencil = {
@@ -197,6 +213,11 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
   const [pencilOpen, setPencilOpen] = useState<OpenAtPencil | null>(null);
   // Bumped when something opens at the Pencil, so a toolbar popover closes.
   const [toolbarDismiss, setToolbarDismiss] = useState(0);
+  // The lasso: whether it holds a selection, the page picker for "Duplicate to page", and what the
+  // last copy did. Each belongs to the page it happened on.
+  const [selection, setSelection] = useState<SelectionChangedEvent | null>(null);
+  const [pickingFor, setPickingFor] = useState<PageId | null>(null);
+  const [copied, setCopied] = useState<CopiedSelection | null>(null);
   const [turn] = useState(() => ({
     offset: new Animated.Value(0),
     opacity: new Animated.Value(1),
@@ -280,6 +301,70 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
     pencilOpen.area.height === area.height
       ? pencilOpen
       : null;
+
+  const hasSelection = selection !== null && selection.pageId === page.id && selection.hasSelection;
+  const copyNotice = copied !== null && copied.pageId === page.id ? copied : null;
+
+  const showCopyNotice = (text: string, undo: CopiedSelection["undo"]) => {
+    setCopied((previous) => ({ id: (previous?.id ?? 0) + 1, pageId: page.id, text, canUndo: undo !== null, undo }));
+  };
+
+  /** Copies the lasso's selection to the chosen page; a new page is added right after this one. */
+  const copySelectionTo = (choice: PagePickerChoice) => {
+    setPickingFor(null);
+    const canvas = canvasRef.current;
+    if (canvas === null) return;
+    const created = choice.kind === "new" ? repository.pages.add(notebook.id, page.id) : null;
+    if (created !== null && !reportFailure(created, "add a page")) return;
+    const target = choice.kind === "page" ? choice.page : created?.value;
+    if (target === undefined) return;
+    const createdPageId = choice.kind === "new" ? target.id : null;
+    const label = choice.kind === "page" ? `page ${String(choice.number)}` : "a new page";
+    // A page added for a copy that never arrived would be left behind empty.
+    const discardNewPage = () => {
+      if (createdPageId !== null) reportFailure(repository.pages.trash(createdPageId), "remove the new page");
+    };
+    void (async () => {
+      try {
+        const result = await canvas.copySelection({
+          pageId: target.id,
+          drawingFileUri: drawingFileUri(target),
+          pageSize: { widthPt: target.widthPt, heightPt: target.heightPt },
+          template: target.template,
+        });
+        if (result.strokeCount === 0) {
+          discardNewPage();
+          showCopyNotice("Nothing is selected", null);
+          return;
+        }
+        showCopyNotice(`Copied to ${label}`, { label, createdPageId });
+      } catch (error) {
+        console.error("Copying the selection failed", error instanceof Error ? error.message : String(error));
+        discardNewPage();
+        showCopyNotice("Couldn't copy the selection", null);
+      }
+    })();
+  };
+
+  const undoCopy = (undo: NonNullable<CopiedSelection["undo"]>) => {
+    const canvas = canvasRef.current;
+    if (canvas === null) return;
+    void (async () => {
+      try {
+        if (!(await canvas.undoSelectionCopy())) {
+          showCopyNotice("Can't undo: that page has changed", null);
+          return;
+        }
+        if (undo.createdPageId !== null) {
+          reportFailure(repository.pages.trash(undo.createdPageId), "remove the new page");
+        }
+        showCopyNotice(`Removed from ${undo.label}`, null);
+      } catch (error) {
+        console.error("Undoing the copy failed", error instanceof Error ? error.message : String(error));
+        showCopyNotice("Couldn't undo the copy", null);
+      }
+    })();
+  };
 
   const openAtPencil = (surface: PencilSurface, point: CanvasPoint | null) => {
     setPencilOpen((previous) => ({ id: (previous?.id ?? 0) + 1, surface, point, pageId: page.id, area }));
@@ -481,6 +566,7 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
                 if (event.pageId === page.id) toolbarCollapse.toolUsage(event.active);
               }}
               onHistoryGesture={handleHistoryGesture}
+              onSelectionChanged={setSelection}
               onToolFeedback={(event) => {
                 // Development builds only: shows when Apple Pencil Pro would feel the haptic.
                 if (__DEV__) console.log(`Pencil haptic (${event.source})`);
@@ -529,7 +615,32 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
               />
             )}
           </View>
-          {historyNotice !== null && <HistoryHud notice={historyNotice} dock={toolbox.dock} />}
+          <View
+            pointerEvents="box-none"
+            style={{ position: "absolute", top: 8, left: 0, right: 0, alignItems: "center", gap: 8 }}
+          >
+            {copyNotice !== null && (
+              <CopyNotice
+                notice={copyNotice}
+                onUndo={() => {
+                  if (copyNotice.undo !== null) undoCopy(copyNotice.undo);
+                }}
+                onDone={() => {
+                  setCopied((current) => (current?.id === copyNotice.id ? null : current));
+                }}
+              />
+            )}
+            {hasSelection && pickingFor === null && atPencil === null && (
+              <SelectionPill
+                onPress={() => {
+                  setPickingFor(page.id);
+                }}
+              />
+            )}
+          </View>
+          {historyNotice !== null && (
+            <HistoryHud notice={historyNotice} dock={toolbox.dock} lowered={hasSelection || copyNotice !== null} />
+          )}
           {atPencil?.surface === "palette" && (
             <RadialPalette
               key={atPencil.id}
@@ -550,6 +661,17 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
               area={area}
               onClose={() => {
                 setPencilOpen(null);
+              }}
+            />
+          )}
+          {pickingFor === page.id && (
+            <PagePicker
+              pages={pages}
+              currentPageId={page.id}
+              area={area}
+              onChoose={copySelectionTo}
+              onClose={() => {
+                setPickingFor(null);
               }}
             />
           )}

@@ -15,12 +15,16 @@ type HistoryHudProps = {
   readonly notice: HistoryNotice;
   /** The toolbar's edge: the notice sits at the top unless the toolbar is there. */
   readonly dock: ToolbarDock;
+  /** Something else (the lasso's pill or its notice) has the top of the page: sit below it. */
+  readonly lowered: boolean;
 };
 
 const FADE_IN_MS = 120;
 const HOLD_MS = 650;
 const FADE_OUT_MS = 200;
 const EDGE = 12;
+/** Room for the lasso's pill above the notice. */
+const LOWERED = 56;
 
 function messageFor(notice: HistoryNotice): string {
   if (notice.applied) return notice.action === "undo" ? "Undo" : "Redo";
@@ -32,7 +36,7 @@ function messageFor(notice: HistoryNotice): string {
  * nothing to undo. It never takes touches, fades only (fine with Reduce Motion), and VoiceOver
  * hears it as an announcement instead of finding it on screen.
  */
-export function HistoryHud({ notice, dock }: HistoryHudProps) {
+export function HistoryHud({ notice, dock, lowered }: HistoryHudProps) {
   const [opacity] = useState(() => new Animated.Value(0));
   const message = messageFor(notice);
 
@@ -58,7 +62,7 @@ export function HistoryHud({ notice, dock }: HistoryHudProps) {
       style={{
         position: "absolute",
         alignSelf: "center",
-        ...(dock === "top" ? { bottom: EDGE * 2 } : { top: EDGE }),
+        ...(dock === "top" ? { bottom: EDGE * 2 } : { top: lowered ? LOWERED : EDGE }),
         opacity,
         flexDirection: "row",
         alignItems: "center",
