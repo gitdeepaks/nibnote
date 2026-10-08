@@ -386,7 +386,7 @@ Goal: a strict, lint-clean monorepo that builds a dev client to your iPad, plus 
 
 **Tasks**
 
-- [ ] Apple Developer account active; bundle ID reserved (`in.deepak.nibnote`)
+- [x] Apple Developer account active; bundle ID reserved (`in.deepak.nibnote`)
 - [x] Xcode 27 installed; iPad on iPadOS 27 in Developer Mode
 - [x] Bun workspace with `apps/ipad`, `apps/server`, `packages/shared`, `packages/config`
 - [x] Create the Expo app on SDK 58 with the default template; set `ios.supportsTablet: true`, `ios.requireFullScreen: false`, iPad-only device family
@@ -398,7 +398,7 @@ Goal: a strict, lint-clean monorepo that builds a dev client to your iPad, plus 
 - [x] `CLAUDE.md` + `.claude/settings.json` hook (see prompt below)
 - [x] **Spike:** `npx create-expo-module --local pencil-canvas`, render a bare `PKCanvasView` full screen, draw with Pencil. Throw the spike away after
 - [x] **Spike:** check whether iPadOS 27 PaperKit fits better than raw PKCanvasView for paged notebooks; record the decision in this doc
-- [ ] Check the app name is free in App Store Connect and reserve it now; rename if taken
+- [x] Check the app name is free in App Store Connect and reserve it now; rename if taken
 - [x] Set the iOS deployment target to 26.0 in app config
 - [x] macOS CI job: SwiftLint and XCTest for the native module on every PR
 - [x] Install the "All" skills from the Agent skills section and add the skills block to `CLAUDE.md` (all six Phase 0 + Phase 1 skills installed Sep 25, 2026; every one passed the skills.sh audits and a manual read of its scripts)
@@ -415,6 +415,7 @@ Goal: a strict, lint-clean monorepo that builds a dev client to your iPad, plus 
 - **PencilKit spike result:** a bare `PKCanvasView` inside a local Expo module, with the system `PKToolPicker`, feels identical to Apple Notes on the iPad Pro 11" (3rd gen) with Apple Pencil 2. Finding for Phase 1: with no fixed `contentSize`, zooming out below 1x leaves an area outside the page where no ink can be drawn. The fixed page sizes plus a fit-to-screen minimum zoom already planned for Phase 1 remove this. The spike has been deleted.
 - **Device signing for now:** free Personal Team (`ios.appleTeamId` in app config). Builds expire after 7 days. The first device build needs "Always Allow" on the codesign keychain prompt: with `COCOAPODS_PARALLEL_CODE_SIGN`, a dismissed prompt silently leaves a framework unsigned, and the install then fails with `ApplicationVerificationFailed`.
 - **Paid Apple Developer account is needed before Phase 4.** Personal Team is enough for Phases 1–3, but Sign in with Apple, App Store Connect name reservation, TestFlight and the App Store all need the paid program.
+- **Paid Apple Developer account active (Oct 8, 2026).** Apple upgraded the Personal Team in place, so the Team ID in app config is unchanged and `in.deepak.nibnote` was already registered to it. Xcode needed a fresh sign-in (and a restart) before `xcodebuild -allowProvisioningUpdates` saw the paid team; the old 7-day profile also had to be removed from `~/Library/Developer/Xcode/UserData/Provisioning Profiles`, or Xcode keeps reusing it. Development profiles now last a year (the first one runs to Oct 8, 2027). "Nibnote" is reserved in App Store Connect (app record created, iOS, SKU `nibnote-ipad`, version 1.0 in "Prepare for Submission").
 - **PaperKit vs raw PKCanvasView: stay on PKCanvasView for v1.0.** The iPadOS 27 SDK `PaperKit.swiftinterface` shows:
   - `PaperMarkup` is its own opaque format. A `PKDrawing` can be appended in, but no API reads a `PKDrawing` back out. That breaks the locked "one page = one PKDrawing file" decision, the Phase 6 `PDFPageOverlayViewProvider` + `PKCanvasView` approach, and PDF/PNG export.
   - `PaperMarkupViewController` is a view controller with only `directTouchMode` (`drawing`/`selection`), with no `drawingPolicy` and no access to the underlying canvas. That makes pencil-only drawing with finger scroll, the Phase 3 stroke replacement for shape snapping, and our custom toolbar harder to control.
@@ -1444,7 +1445,8 @@ JS-only fixes after launch ship through EAS Update, using a fingerprint-based `r
 
 **App Store requirements**
 
-- [ ] App Store Connect record, iPad-only, category Productivity
+- [ ] App Store Connect record, iPad-only, category Productivity (the record exists since Oct 8, 2026; category and the rest of the listing are still to do)
+- [ ] EU trader status declared in App Store Connect (Digital Services Act): without it the app can't be distributed in the EU. Declaring as a trader publishes an address and phone number on the App Store, so decide this deliberately
 - [ ] Icon, 13-inch iPad screenshots (library, writing, PDF, search, dark mode), short preview video
 - [ ] Privacy policy and terms pages hosted (a simple page on your domain)
 - [ ] Privacy manifest via `ios.privacyManifests` in app config, covering required-reason APIs used by the app and its dependencies
