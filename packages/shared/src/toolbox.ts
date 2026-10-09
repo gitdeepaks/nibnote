@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   DrawingPolicy,
   HexColor,
+  ShapeStyle,
   StrokeWidth,
   type CanvasTool,
   type InkType,
@@ -76,6 +77,12 @@ export type Toolbox = {
   readonly recentColors: readonly HexColor[];
   /** Where the toolbar is docked. */
   readonly dock: ToolbarDock;
+  /**
+   * Whether a pen, pencil or highlighter stroke that ends with the Pencil held still becomes a
+   * clean shape. One switch for all three tools.
+   */
+  readonly shapeSnapping: boolean;
+  readonly shapeStyle: ShapeStyle;
 };
 
 export const MAX_RECENT_COLORS = 8;
@@ -117,6 +124,8 @@ export const DEFAULT_TOOLBOX: Toolbox = {
   drawingPolicy: "pencilOnly",
   recentColors: [],
   dock: "bottom",
+  shapeSnapping: true,
+  shapeStyle: "clean",
 };
 
 /** The stored toolbox. Parsing never fails; see the note at the top of this file. */
@@ -137,6 +146,9 @@ export const StoredToolbox = z
     drawingPolicy: DrawingPolicy.catch(DEFAULT_TOOLBOX.drawingPolicy),
     recentColors: z.array(HexColor).max(MAX_RECENT_COLORS).readonly().catch(DEFAULT_TOOLBOX.recentColors),
     dock: ToolbarDock.catch(DEFAULT_TOOLBOX.dock),
+    // Added in M5a: a toolbox saved before shapes existed snaps to clean shapes.
+    shapeSnapping: z.boolean().catch(DEFAULT_TOOLBOX.shapeSnapping),
+    shapeStyle: ShapeStyle.catch(DEFAULT_TOOLBOX.shapeStyle),
   })
   .readonly()
   .catch(DEFAULT_TOOLBOX);
@@ -177,6 +189,16 @@ export function nearestDock(
 /** Switches between "only Apple Pencil draws" and "a finger draws too". */
 export function toggleDrawingPolicy(toolbox: Toolbox): Toolbox {
   return { ...toolbox, drawingPolicy: toolbox.drawingPolicy === "pencilOnly" ? "anyInput" : "pencilOnly" };
+}
+
+/** Turns shape snapping on or off, for every tool that draws. */
+export function toggleShapeSnapping(toolbox: Toolbox): Toolbox {
+  return { ...toolbox, shapeSnapping: !toolbox.shapeSnapping };
+}
+
+/** Sets how snapped shapes are drawn from now on; shapes already on the page stay as they are. */
+export function setShapeStyle(toolbox: Toolbox, style: ShapeStyle): Toolbox {
+  return toolbox.shapeStyle === style ? toolbox : { ...toolbox, shapeStyle: style };
 }
 
 /** Sets the colour a slot draws with. The slot's pinned colours stay as they are. */

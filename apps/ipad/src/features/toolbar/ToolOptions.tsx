@@ -5,13 +5,14 @@ import {
   PenInk,
   selectSlot,
   setWidthPreset,
+  ShapeStyle,
   slotWidthRange,
   spokenWidth,
   type ColorSlot,
   type TrioIndex,
   type WidthRange,
 } from "@nibnote/shared";
-import { Picker, RNHostView, Slider, Text as SwiftText, VStack } from "@expo/ui/swift-ui";
+import { Divider, Picker, RNHostView, Slider, Text as SwiftText, Toggle, VStack } from "@expo/ui/swift-ui";
 import { accessibilityLabel, accessibilityValue, frame, padding, pickerStyle, tag } from "@expo/ui/swift-ui/modifiers";
 import { useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -20,7 +21,8 @@ import { InkPreview, PREVIEW_WIDTH } from "./InkPreview";
 import { useToolbox } from "./ToolboxProvider";
 
 // The options of the selected colour tool: a live preview in the real ink, three width presets,
-// a fine slider that edits the selected preset, and the pen's ink style.
+// a fine slider that edits the selected preset, and the pen's ink style. Below them, shape
+// snapping: one setting for all three tools, shown in each so it is found wherever the user looks.
 
 const TOOL_NAMES: Readonly<Record<ColorSlot, string>> = { pen: "Pen", pencil: "Pencil", highlighter: "Highlighter" };
 
@@ -28,6 +30,11 @@ const PEN_INKS: readonly { readonly ink: PenInk; readonly label: string }[] = [
   { ink: "pen", label: "Pen" },
   { ink: "fountainPen", label: "Fountain" },
   { ink: "monoline", label: "Monoline" },
+];
+
+const SHAPE_STYLES: readonly { readonly style: ShapeStyle; readonly label: string }[] = [
+  { style: "clean", label: "Clean" },
+  { style: "handDrawn", label: "Hand-drawn" },
 ];
 
 const PRESET_INDEXES: readonly TrioIndex[] = [0, 1, 2];
@@ -106,6 +113,32 @@ export function ToolOptions({ slot }: { readonly slot: ColorSlot }) {
         >
           {PEN_INKS.map((option) => (
             <SwiftText key={option.ink} modifiers={[tag(option.ink)]}>
+              {option.label}
+            </SwiftText>
+          ))}
+        </Picker>
+      )}
+      <Divider />
+      <Toggle
+        isOn={toolbox.shapeSnapping}
+        onIsOnChange={(on) => {
+          if (on !== toolbox.shapeSnapping) actions.toggleShapeSnapping();
+        }}
+      >
+        <SwiftText>Snap to shape</SwiftText>
+        <SwiftText>Hold at the end of a stroke</SwiftText>
+      </Toggle>
+      {toolbox.shapeSnapping && (
+        <Picker
+          modifiers={[pickerStyle("segmented"), accessibilityLabel("Shape style")]}
+          selection={toolbox.shapeStyle}
+          onSelectionChange={(selection) => {
+            const parsed = ShapeStyle.safeParse(selection);
+            if (parsed.success) actions.setShapeStyle(parsed.data);
+          }}
+        >
+          {SHAPE_STYLES.map((option) => (
+            <SwiftText key={option.style} modifiers={[tag(option.style)]}>
               {option.label}
             </SwiftText>
           ))}

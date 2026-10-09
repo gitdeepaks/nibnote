@@ -50,7 +50,7 @@ extension PencilCanvasView {
         scheduleDrawingChangedEvent()
     }
 
-    private func swapUndo(to target: PKDrawing, from current: PKDrawing) {
+    func swapUndo(to target: PKDrawing, from current: PKDrawing) {
         canvasView.pageUndoManager.registerUndo(withTarget: self) { view in
             view.canvasView.drawing = target
             view.swapUndo(to: current, from: target)

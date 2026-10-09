@@ -10,14 +10,17 @@ import {
   setEraserPreset,
   setPenInk,
   setPinnedColor,
+  setShapeStyle,
   setWidthPreset,
   toggleDrawingPolicy,
   toggleHighlighterOnly,
+  toggleShapeSnapping,
   type ColorSlot,
   type EraserMode,
   type HexColor,
   type PenInk,
   type PencilPreferredAction,
+  type ShapeStyle,
   type Toolbox,
   type ToolbarDock,
   type ToolSlot,
@@ -48,6 +51,8 @@ export type ToolboxActions = {
   readonly toggleHighlighterOnly: () => void;
   readonly selectEraserPreset: (index: TrioIndex) => void;
   readonly setEraserPreset: (index: TrioIndex, width: number) => void;
+  readonly toggleShapeSnapping: () => void;
+  readonly setShapeStyle: (style: ShapeStyle) => void;
   /** Writes a pending change now (the app is going to the background). */
   readonly flush: () => void;
 };
@@ -134,6 +139,12 @@ export function createToolboxStore(storage: ToolboxStorage): StoreApi<ToolboxSta
         },
         setEraserPreset: (index, width) => {
           update((toolbox) => setEraserPreset(toolbox, index, width));
+        },
+        toggleShapeSnapping: () => {
+          update(toggleShapeSnapping);
+        },
+        setShapeStyle: (style) => {
+          update((toolbox) => setShapeStyle(toolbox, style));
         },
         flush: () => {
           if (pending.timer === null) return;

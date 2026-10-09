@@ -24,12 +24,14 @@ import {
   setEraserPreset,
   setPenInk,
   setPinnedColor,
+  setShapeStyle,
   setSlotColor,
   setSlotWidth,
   setWidthPreset,
   StoredToolbox,
   toggleDrawingPolicy,
   toggleHighlighterOnly,
+  toggleShapeSnapping,
   ToolbarDock,
   ToolSlot,
   type Toolbox,
@@ -152,6 +154,37 @@ describe("drawing policy", () => {
   });
 });
 
+describe("shape snapping", () => {
+  test("is on with clean shapes by default, and one switch turns it off for every tool", () => {
+    expect(DEFAULT_TOOLBOX.shapeSnapping).toBe(true);
+    expect(DEFAULT_TOOLBOX.shapeStyle).toBe("clean");
+    const off = toggleShapeSnapping(DEFAULT_TOOLBOX);
+    expect(off.shapeSnapping).toBe(false);
+    for (const slot of ["pen", "pencil", "highlighter"] as const) {
+      expect(selectSlot(off, slot).shapeSnapping).toBe(false);
+    }
+    expect(toggleShapeSnapping(off).shapeSnapping).toBe(true);
+  });
+
+  test("the style is remembered, and survives being switched off and on", () => {
+    const handDrawn = setShapeStyle(DEFAULT_TOOLBOX, "handDrawn");
+    expect(handDrawn.shapeStyle).toBe("handDrawn");
+    expect(stored(handDrawn).shapeStyle).toBe("handDrawn");
+    expect(toggleShapeSnapping(toggleShapeSnapping(handDrawn)).shapeStyle).toBe("handDrawn");
+    expect(stored(toggleShapeSnapping(handDrawn)).shapeSnapping).toBe(false);
+  });
+
+  test("setting the style it already has changes nothing, so nothing is saved", () => {
+    expect(setShapeStyle(DEFAULT_TOOLBOX, "clean")).toBe(DEFAULT_TOOLBOX);
+  });
+
+  test("the tools themselves are untouched", () => {
+    const edited = setShapeStyle(toggleShapeSnapping(DEFAULT_TOOLBOX), "handDrawn");
+    expect(edited.slots).toBe(DEFAULT_TOOLBOX.slots);
+    expect(canvasToolFor(edited)).toEqual(canvasToolFor(DEFAULT_TOOLBOX));
+  });
+});
+
 describe("selectSlot", () => {
   test("remembers the slot it replaces", () => {
     const toolbox = selectSlot(selectSlot(DEFAULT_TOOLBOX, "highlighter"), "eraser");
@@ -221,6 +254,28 @@ describe("StoredToolbox", () => {
     expect(toolbox.drawingPolicy).toBe("pencilOnly");
     expect(toolbox.active).toBe("highlighter");
     expect(toolbox.slots.pen.color).toBe(red);
+  });
+
+  test("a toolbox saved before shapes existed snaps to clean shapes and keeps the user's tools", () => {
+    const edited = toggleDrawingPolicy(selectSlot(setSlotColor(DEFAULT_TOOLBOX, "pen", red), "highlighter"));
+    const toolbox = stored({
+      active: edited.active,
+      previous: edited.previous,
+      slots: edited.slots,
+      drawingPolicy: edited.drawingPolicy,
+      recentColors: edited.recentColors,
+      dock: edited.dock,
+    });
+    expect(toolbox.shapeSnapping).toBe(true);
+    expect(toolbox.shapeStyle).toBe("clean");
+    expect(toolbox).toEqual(edited);
+  });
+
+  test("a shape style this version doesn't know falls back alone", () => {
+    const toolbox = stored({ ...toggleShapeSnapping(DEFAULT_TOOLBOX), shapeStyle: "sketchy", shapeSnapping: "yes" });
+    expect(toolbox.shapeStyle).toBe("clean");
+    expect(toolbox.shapeSnapping).toBe(true);
+    expect(toolbox.slots).toEqual(DEFAULT_TOOLBOX.slots);
   });
 
   test("an unknown active slot falls back to the pen", () => {

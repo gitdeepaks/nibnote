@@ -39,24 +39,15 @@ public final class PencilCanvasModule: Module {
         View(PencilCanvasView.self) {
             Events(Self.viewEvents)
 
-            Prop("pageId") { (view: PencilCanvasView, value: String) in
-                view.pageId = value
-            }
-            Prop("drawingFileUri") { (view: PencilCanvasView, value: String) in
-                view.drawingFileUri = value
-            }
-            Prop("pageSize") { (view: PencilCanvasView, value: PageSizeRecord) in
-                view.setPageSize(value)
-            }
-            Prop("template") { (view: PencilCanvasView, value: TemplateRecord) in
-                view.setTemplate(value)
-            }
-            Prop("tool") { (view: PencilCanvasView, value: ToolRecord) in
-                view.setTool(value)
-            }
-            Prop("drawingPolicy") { (view: PencilCanvasView, value: String) in
-                view.setDrawingPolicy(value)
-            }
+            // Each prop only stores its value; `applyProps()` acts on all of them together.
+            Prop("pageId") { (view: PencilCanvasView, value: String) in view.pageId = value }
+            Prop("drawingFileUri") { (view: PencilCanvasView, value: String) in view.drawingFileUri = value }
+            Prop("pageSize") { (view: PencilCanvasView, value: PageSizeRecord) in view.setPageSize(value) }
+            Prop("template") { (view: PencilCanvasView, value: TemplateRecord) in view.setTemplate(value) }
+            Prop("tool") { (view: PencilCanvasView, value: ToolRecord) in view.setTool(value) }
+            Prop("drawingPolicy") { (view: PencilCanvasView, value: String) in view.setDrawingPolicy(value) }
+            Prop("shapeSnapping") { (view: PencilCanvasView, value: Bool) in view.shapeSnapping = value }
+            Prop("shapeStyle") { (view: PencilCanvasView, value: String) in view.setShapeStyle(value) }
             Prop("debugSystemToolPicker") { (view: PencilCanvasView, value: Bool) in
                 view.showsSystemToolPicker = value
             }

@@ -5,6 +5,7 @@ import UIKit
 extension PencilCanvasView: PKCanvasViewDelegate {
     func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
         drawingVersion += 1
+        snapShapeIfHeld()
         selectionMayHaveChanged()
         highlighterEraser.drawingDidChange()
         guard !isReplacingDrawing, pageState == .ready else { return }

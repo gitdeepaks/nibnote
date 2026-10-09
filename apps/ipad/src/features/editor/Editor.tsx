@@ -547,6 +547,8 @@ function PageEditor({ notebook, pages, page, pageNumber, onShowPage }: PageEdito
               template={page.template}
               tool={tool}
               drawingPolicy={toolbox.drawingPolicy}
+              shapeSnapping={toolbox.shapeSnapping}
+              shapeStyle={toolbox.shapeStyle}
               onDrawingChanged={(event) => {
                 stopOpenTimer(notebook.id);
                 setHistory({
