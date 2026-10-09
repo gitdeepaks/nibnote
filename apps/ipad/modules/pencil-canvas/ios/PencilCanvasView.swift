@@ -29,6 +29,14 @@ final class PencilCanvasView: ExpoView {
     /// Development builds only: the Pencil Pro haptic was played (so it can be checked on any Pencil).
     let onToolFeedback = EventDispatcher()
     let onSelectionChanged = EventDispatcher()
+    /// Shape snapping (see `PencilCanvasView+Shapes`).
+    let holdObserver = HoldObserver()
+    let shapePreview = CAShapeLayer()
+    var shapeSnapping = true
+    var shapeLook = ShapeLook.clean
+    /// The number of strokes when the drawing last changed, to tell that one was just added.
+    var strokeCountAtLastChange = 0
+    private(set) lazy var shapeFeedback = UICanvasFeedbackGenerator(view: self)
 
     let canvasView = PageCanvasView()
     let store = DrawingStore()
@@ -117,6 +125,7 @@ final class PencilCanvasView: ExpoView {
         installHighlighterEraser()
         installFingerTaps()
         installToolFeedback()
+        installShapeSnapping()
         // VoiceOver claims every touch for navigation (tap selects, double-tap activates), so without
         // this nothing could be written with it on. Direct interaction passes touches on the page
         // straight to PencilKit, as Apple intends for drawing surfaces.
@@ -177,6 +186,14 @@ final class PencilCanvasView: ExpoView {
         }
     }
 
+    func setShapeStyle(_ value: String) {
+        guard let look = ShapeLook(rawValue: value) else {
+            propErrors.append((code: "invalidTool", message: "unsupported shape style \(value)"))
+            return
+        }
+        shapeLook = look
+    }
+
     func setDrawingPolicy(_ value: String) {
         drawingPolicy = value == "anyInput" ? .anyInput : .pencilOnly
     }
@@ -193,6 +210,7 @@ final class PencilCanvasView: ExpoView {
             selectionMayHaveChanged()
         }
         applyHighlighterEraser()
+        applyShapeSnapping()
         applyToolPickerVisibility()
 
         let next = URL(string: drawingFileUri).flatMap { url in

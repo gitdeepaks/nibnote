@@ -81,6 +81,10 @@ export const PAGE_SIZES = {
 export const DrawingPolicy = z.enum(["pencilOnly", "anyInput"]);
 export type DrawingPolicy = z.infer<typeof DrawingPolicy>;
 
+/** How a snapped shape is drawn: exact, or with a slight wobble as if by a steady hand. */
+export const ShapeStyle = z.enum(["clean", "handDrawn"]);
+export type ShapeStyle = z.infer<typeof ShapeStyle>;
+
 export const DrawingChangedEvent = z
   .object({
     pageId: PageId,

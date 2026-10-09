@@ -678,8 +678,8 @@ Goal: tool switching so fast you never think about it; from the end of this phas
 
 **Shapes and scrolling**
 
-- [ ] Spike first: PencilKit has no public shape recognition, so detect a hold at the end of a stroke with a passive gesture recogniser, fit a line, rectangle, ellipse or arrow, and replace the stroke with a generated `PKStroke`. If the spike fails, park the feature
-- [ ] Style toggle for snapped shapes: clean or hand-drawn (jittered path)
+- [x] Spike first: PencilKit has no public shape recognition, so detect a hold at the end of a stroke with a passive gesture recogniser, fit a line, rectangle, ellipse or triangle, and replace the stroke with a generated `PKStroke`. If the spike fails, park the feature (M5 spike passed; built in M5a. Arrows were tried and left out by the owner's decision, triangles added)
+- [x] Style toggle for snapped shapes: clean or hand-drawn (jittered path) (M5a: clean by default)
 - [ ] Continuous vertical scrolling as a per-notebook option beside page swipe, still mounting only the visible page canvas
 
 **Tool state model**
@@ -688,7 +688,7 @@ Tool state lives in one Zustand store typed as `Record<ToolSlot, CanvasTool>` pl
 
 **Phase 3 decisions**
 
-Phase 3 is built in eight milestones, each its own PR with a device check: M1 tool state and toolbar, M2a colours, widths and the ink preview, M2b docking and the pill, M2c eraser, M3 Apple Pencil and gestures, M4 lasso, M5 spike (shapes and a custom lasso), M6 continuous scrolling. (M2 was split in three on Sep 30, 2026; the eraser work described below as M2b is M2c.)
+Phase 3 is built in eight milestones, each its own PR with a device check: M1 tool state and toolbar, M2a colours, widths and the ink preview, M2b docking and the pill, M2c eraser, M3 Apple Pencil and gestures, M4 lasso, M5 spike (shapes and a custom lasso), M6 continuous scrolling. After the spike, M5 became M5a (shape snapping) and M5b (Nibnote's own lasso, in two PRs). (M2 was split in three on Sep 30, 2026; the eraser work described below as M2b is M2c.)
 
 - **Scope (Sep 30, 2026).** PencilKit's lasso has no public selection API, so resize and recolour need our own lasso. It shares the "replace strokes with generated `PKStroke`s" work with shape snapping, so both are one time-boxed spike in M5; if it fails, resize and recolour go to the Parking lot with shapes. "Erase highlighter only" stays in Phase 3 (M2b) instead of the Parking lot: a custom eraser that reads each stroke's ink type, in stroke mode (remove whole highlighter strokes) and pixel mode (split highlighter strokes along a path sampled every ~1 pt), with one undo step per erase gesture. It must keep up on a 2,000-stroke page, measured with Instruments; if it can't, the numbers go back to the owner for a decision.
 - **M1 (Sep 30, 2026). The toolbox is a pure model in `@nibnote/shared`.** `Toolbox` is `{ active, previous, slots }`, where each slot keeps its own settings (pen: ink, colour, width, three pinned colours, three width presets; pencil and highlighter the same without ink; eraser: mode, width, presets). Rules (`selectSlot`, `chooseColor`, `setSlotWidth`, `canvasToolFor`, `afterPencilAction`) are pure functions with Bun tests. The plan's `Record<ToolSlot, CanvasTool>` became per-slot settings instead, because a `CanvasTool` can't hold pinned colours or presets.
@@ -773,11 +773,28 @@ Phase 3 is built in eight milestones, each its own PR with a device check: M1 to
   - **Checked on the iPad in four rounds:** the pill follows the selection (Pencil tap, finger tap, tool change, page change); copies land in the same place on existing and new pages; Undo, including removing the new page; a cut highlighter stroke arrives cut; a page of another size receives the selection inside its bounds; the copy survives closing the notebook; the source page's undo and redo are unaffected; the system edit menu still works; the undo notice sits below the pill; the toolbar docked at the top doesn't overlap it.
   - **VoiceOver, checked on the iPad the next day (Oct 5, 2026):** the pill reads "Duplicate selection to another page, button"; the picker is modal (the page and toolbar behind it aren't reachable) and reads its heading, "Cancel", "New page" and "Page N"; the result is announced ("Copied to page N") and "Undo" is reachable.
   - **Budget after M4b:** +14.3 KB (3,994,121 → 4,008,380 bytes, same pipeline as before), so the Release bundle is about 4.03 MB; reviewed in Phase 8 per the owner's decision.
+- **M5 spike (Oct 5–8, 2026): go for both shapes and our own lasso.** Throwaway code on `spike/m5`; only what proved right was rebuilt in M5a.
+  - **Shapes, on the owner's handwriting:** with a hold detected, 88 of 91 strokes became the right shape (lines 30/30, ovals 19/19, triangles 17/18, rectangles 22/24), and the owner counted 2–3 misses; no false snap in any round, including "V", "Z", "7" and a tick held at the end; pen, pencil, highlighter, fountain pen and monoline all looked like the real ink; fitting took 0.56 ms on average (Debug, iPad Pro 11-inch 3rd gen).
+  - **Our own lasso, on a 2,000-stroke page:** selecting about 800–970 strokes took 32–38 ms. Setting the whole drawing on every frame of a drag cost 4.75 ms and lagged, so a drag lifts the selection into a picture, moves the picture, and writes the strokes back once: Instruments (Animation Hitches, 81 s) showed 1.13 ms of hitches per second and none during a 497-frame move or a 252-frame resize of 782 strokes; the main thread is busy for 46–60 ms when the drag starts. Move, resize, recolour and one undo step per gesture worked, and survived leaving the notebook and restarting the app.
+  - **PencilKit facts the spike found.** PencilKit registers a stroke's own undo in the run-loop pass that reports the change, so registering ours there puts both in one group and a single undo removes the stroke altogether; the swap waits until `groupingLevel` is 0. A stroke whose `transform` alone changed is not drawn again; a new `PKStroke` with the same ink, path, mask and random seed is.
+  - **Owner's decisions (Oct 5 and 8, 2026).** No arrow snapping: the owner draws arrows in two strokes, and both a one-stroke and a two-stroke recogniser were tried and removed. Nibnote's own lasso replaces PencilKit's (M5b), so M4's pill, "Duplicate to page" and the edit actions move onto our selection. Resizing scales the ink's thickness with its size. The hold stays 0.45 s (three lines lifted at 0.38–0.43 s did not snap; a handwriting stroke once rested 0.35 s). Shapes are clean by default, with the hand-drawn look as a setting.
+- **M5a (Oct 8–9, 2026). Shape snapping.** A pen, pencil or highlighter stroke that ends with the Pencil held still for 0.45 s becomes a line, oval, rectangle or triangle when it lifts. While the Pencil rests, the shape shows over the hand-drawn stroke. One undo brings the hand stroke back and a second removes it.
+  - **Recognition is in Core** (`ShapeFit`, tested), and when in doubt it finds nothing. A stroke is compared as 64 evenly spaced points: nearly straight end to end is a line; ends that meet make a closed shape, which is a rectangle (its directions agree on two perpendicular axes), else an ellipse, else a triangle (the largest triangle on its convex hull, with each corner moved to where its two sides meet). Directions within about 7° of level or upright snap to it. The limits are named in `ShapeFit.Limit` and were tuned on the device logs; the tests include the strokes that missed.
+  - **The hold is in Core too** (`ShapeHold`, tested): 6 pt of wander still counts as resting, and a lift within 30 pt and 1 s of leaving the resting spot still counts as held. Without that, one snap in six was lost in the spike, because a hand moves as it lifts. `HoldObserver` is a passive recogniser like the others; it follows the Pencil over a resting palm, and a finger only when fingers draw.
+  - **Sizes are judged as the user sees them.** The 40 pt minimum length and the 12 pt "too thin" limit are in screen points, and points along a stroke are taken 3 screen points apart (never finer than 0.75 pt on the page), so a shape drawn zoomed in snaps like one drawn at normal size. Shapes under about 25 pt across on screen, the size of a handwritten letter, are hit and miss (10 of 16, then 10 of 11 at 4× zoom) because a hand's wobble is large for their size; the owner chose to leave the limits as they are rather than risk held letters turning into shapes.
+  - **A line drawn there and back stays a line.** A closed shape thinner than 12 pt on screen, or than 5% of its length (10% for a triangle, since a retraced line always has three corners), is not a shape.
+  - **The generated stroke** (`ShapeStroke`, tested) keeps the original's ink, random seed and date, and gives every point the size, opacity and tilt of the middle of the hand stroke, because its ends taper. Each corner is repeated three times, since a single point would be rounded by PencilKit's B-spline. The hand-drawn look moves points along two slow waves, by at most about 1% of the shape's size and never more than 2.2 pt; corners move as one point, and the stroke's seed makes the wobble repeatable.
+  - **One setting for all three tools:** "Snap to shape" and "Clean / Hand-drawn" sit in the pen, pencil and highlighter options and are stored with the toolbox (on and clean by default; a toolbox saved before M5a reads as that). The style applies to shapes snapped from then on.
+  - **Feedback.** VoiceOver announces "Snapped to rectangle" (and so on). Apple Pencil Pro taps through `UICanvasFeedbackGenerator.pathCompleted`, as Apple's own apps do; untested on hardware, see Phase 8.5 A.
+  - **Checked on the iPad in four rounds:** all four shapes with their preview; undo, undo, redo, redo; pencil, highlighter, fountain pen and monoline; no false snap in handwriting or on letters held at the end; a retraced line stays as drawn and a flat triangle still snaps; the switch off stops snapping and is remembered across a restart; the hand-drawn style; shapes drawn at 4× zoom keep the ink's thickness at normal zoom; with fingers drawing, the Pencil snaps over a resting palm, a finger snaps too, and a two-finger scroll followed by a resting finger shows nothing.
+  - **Not measured yet:** fit time on a Release build and an Instruments run of the built feature; both are a Phase 3 exit criterion below. The Core test holds every fit under 5 ms in a Debug build on the simulator, and the triangle search (the spike's only slow case, 4–6 ms about one time in ten) now looks only at the convex hull.
+  - **Budget after M5a:** +3.0 KB (4,008,380 → 4,011,383 bytes, same pipeline as before); reviewed in Phase 8 per the owner's decision.
 
 **Exit criteria**
 
 - [ ] Switch pen → red highlighter → eraser → pen in under 2 seconds without looking at the toolbar
 - [ ] One full week of daily real notes; every annoyance logged and fixed or parked
+- [ ] Shape snapping measured on a Release build: every fit under 5 ms, and an Instruments run with no hitch when a stroke snaps (left open by M5a)
 - [x] VoiceOver labels on every toolbar control (M3 closure: code audit plus Accessibility Inspector on the iPad simulator)
 
 **Claude Code prompt**
@@ -1214,7 +1231,7 @@ Goal: close every known gap before release, so Phase 9 is only packaging and sub
 - [ ] `[P1]` **Dark paper option.** "Dark paper" sets `paperAppearance = "dark"`; PencilKit adapts the ink on screen while stored colours stay unchanged. Exports always render light (see G).
 - [ ] `[P1]` **`.bak` fallback.** A corrupt main drawing loads from `<pageId>.drawing.bak`; if both fail, `onCanvasError` fires and the page opens empty without overwriting either file.
 - [ ] `[P1]` **Finger drawing when there is no Pencil.** Our custom toolbar hides `PKToolPicker`, so `.default` drawing policy would force Pencil-only. Compute the policy ourselves: read `UIPencilInteraction.prefersPencilOnlyDrawing` (the system "Only Draw with Apple Pencil" setting); if it is false, use `.anyInput`; switch to `.pencilOnly` automatically after the first Pencil touch; a toolbar toggle overrides both and persists. The toggle has persisted since Phase 3 (M1); the automatic policy is still open.
-- [ ] `[P1]` **Pencil Pro features marked honestly.** Squeeze and haptics implemented; record "untested on hardware" until verified on a Pencil Pro device. Since M3b this also covers barrel roll, the palette at the hover position and the highlighter-only eraser's hover preview (needs an iPad with hover).
+- [ ] `[P1]` **Pencil Pro features marked honestly.** Squeeze and haptics implemented; record "untested on hardware" until verified on a Pencil Pro device. Since M3b this also covers barrel roll, the palette at the hover position and the highlighter-only eraser's hover preview (needs an iPad with hover). Since M5a also the tap when a stroke snaps to a shape.
 - [ ] `[P1]` **Measured baseline.** Save time (500 strokes), Whiteboard fps (2,000 strokes) and mount/unmount memory recorded under "Phase 1 decisions".
 
 ### B. Windows, orientation and launch screen
@@ -1247,7 +1264,7 @@ iPadOS 26 deprecated `UIRequiresFullScreen`; apps must handle every orientation 
 - [ ] `[P3]` Tool slots, pinned colours, toolbar dock position and the Pencil-only override survive an app restart.
 - [ ] `[P3]` Undo after switching pages never touches the previous page's strokes.
 - [ ] `[P3]` Two-finger tap undo never fires during pinch-zoom or two-finger scroll.
-- [ ] `[P3]` One undo reverts a snapped shape to the original stroke.
+- [x] `[P3]` One undo reverts a snapped shape to the original stroke. Done in Phase 3 (M5a): the swap waits for PencilKit's undo group to close; checked on the iPad.
 - [ ] `[P3]` Toolbar usable docked left (left-handed use) and at the narrowest window width.
 - [ ] `[P3]` Colour swatches carry a text label for VoiceOver and don't rely on colour alone (Differentiate Without Color).
 
@@ -1509,6 +1526,7 @@ The three biggest risks are SDK 58 beta churn, React Native multi-window limits,
 
 - [ ] Endless-height pages (v1.1) and true infinite canvas (v2)
 - [ ] Typed text boxes, images, shapes and sticky notes on pages
+- [ ] Snap a shape drawn in several strokes (four lines into a rectangle); M5a snaps one stroke at a time
 - [ ] Audio recording synced to ink
 - [ ] AI: summarise a notebook, turn handwriting into clean typed notes, ask questions over notes
 - [ ] Subscriptions (RevenueCat) and a free tier limit

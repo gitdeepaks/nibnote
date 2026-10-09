@@ -17,6 +17,7 @@ import {
   type PageId,
   type PageSize,
   type PageTemplate,
+  type ShapeStyle,
 } from "@nibnote/shared";
 import { requireNativeView } from "expo";
 import { useImperativeHandle, useRef, type Ref } from "react";
@@ -45,6 +46,8 @@ type NativeCanvasProps = {
   readonly template: PageTemplate;
   readonly tool: CanvasTool;
   readonly drawingPolicy: DrawingPolicy;
+  readonly shapeSnapping: boolean;
+  readonly shapeStyle: ShapeStyle;
   readonly debugSystemToolPicker: boolean;
   readonly onDrawingChanged: (event: NativeEvent) => void;
   readonly onPencilAction: (event: NativeEvent) => void;
@@ -85,6 +88,13 @@ export type PencilCanvasProps = {
   readonly template: PageTemplate;
   readonly tool: CanvasTool;
   readonly drawingPolicy: DrawingPolicy;
+  /**
+   * Whether a pen, pencil or highlighter stroke that ends with the Pencil held still becomes a
+   * clean line, oval, rectangle or triangle. One undo brings the hand-drawn stroke back.
+   */
+  readonly shapeSnapping: boolean;
+  /** How shapes snapped from now on are drawn. */
+  readonly shapeStyle: ShapeStyle;
   readonly onDrawingChanged: (event: DrawingChangedEvent) => void;
   readonly onPencilAction: (event: PencilActionEvent) => void;
   readonly onCanvasError: (event: CanvasErrorEvent) => void;
